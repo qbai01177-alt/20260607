@@ -4,7 +4,7 @@ let handPose;
 let hands = [];
 
 // --- 遊戲設定常數 (Game Settings Constants) ---
-const HAND_RAISE_THRESHOLD = 0.45; // 舉手判定的閾值 (y軸百分比)
+const HAND_RAISE_THRESHOLD = 0.45; // 舉手判定的閾值 (y軸百分比，越小需要舉越高)
 const OBSTACLE_MIN_INTERVAL = 80;  // 障礙物產生最小間隔 (影格)
 const OBSTACLE_MAX_INTERVAL = 150; // 障礙物產生最大間隔 (影格)
 const GROUND_Y_OFFSET = 100;       // 地板線距離底部的高度
@@ -50,7 +50,7 @@ function draw() {
   const videoX = width * 0.55; // 移到右側
   const videoY = (height - videoHeight) / 2;
 
-  // 因為 createCapture 已經設定了 flipped: true，這裡直接畫出來就是鏡像的（跟你照鏡子一樣）
+  // 因為 createCapture 已經設定了 flipped: true，這裡直接畫出來就是鏡像的
   image(capture, videoX, videoY, videoWidth, videoHeight);
 
   // --- 2. 核心邏輯：偵測雙手舉起高度 ---
@@ -72,13 +72,9 @@ function draw() {
     fill(0, 255, 0);
     ellipse(mappedX, mappedY, 15, 15);
 
-    // 🌟 核心判斷：當手掌高度高於攝影機畫面的「中線」以上，就算「舉手」
-    // (注意：螢幕座標越往上 Y 越小，所以是小於)
-    let thresholdY = videoY + videoHeight * HAND_RAISE_THRESHOLD; 
-
+    // 🌟 核心判換：當手掌高度高於攝影機畫面的閾值以上，就算「舉手」
     if (wrist.y < capture.height * HAND_RAISE_THRESHOLD) { 
       // 根據 ml5.js 偵測這隻手是左手還是右手
-      // 註：因為畫面鏡像了，這裡直接採用模型判定的 handedness (Left/Right)
       if (hand.handedness === 'Left') {
         leftHandUp = true;
       } else if (hand.handedness === 'Right') {
@@ -120,15 +116,18 @@ function draw() {
       obstacles[i].update();
       obstacles[i].display();
 
+      // 檢查碰撞
       if (obstacles[i].hits(player)) {
         gameOver = true;
       }
 
+      // 計分機制
       if (obstacles[i].x + obstacles[i].w < player.x && !obstacles[i].passed) {
         score += 10;
         obstacles[i].passed = true;
       }
 
+      // 刪除出界障礙物
       if (obstacles[i].x < -50) {
         obstacles.splice(i, 1);
       }
@@ -175,6 +174,13 @@ function mousePressed() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  // 視窗大小改變時，同步更新角色的地面基準線
+  if (player) {
+    player.baseY = height - PLAYER_START_Y_OFFSET;
+    if (!player.isSliding && player.y >= player.baseY) {
+      player.y = player.baseY;
+    }
+  }
 }
 
 // ==========================================
@@ -194,28 +200,25 @@ class Player {
     this.jumpForce = -18;    
     this.isSliding = false;  
     
-    // 🌟 二連跳控制變數
+    // 二連跳控制變數
     this.jumpCount = 0;      
     this.maxJumps = 2;       
     this.canDoubleJumpTrigger = true; 
   }
 
   jump() {
-    // 普通單跳：必須在地板上
     if (this.y === this.baseY && !this.isSliding && this.jumpCount === 0) {
       this.velocity = this.jumpForce;
       this.jumpCount = 1;
-      this.canDoubleJumpTrigger = false; // 先鎖定，避免跟雙手舉起衝突
+      this.canDoubleJumpTrigger = false; 
     }
   }
 
   doubleJump() {
-    // 二連跳：當雙手舉起，且角色還在空中，且只跳過一次時，觸發第二次跳躍
     if (this.y < this.baseY && this.jumpCount === 1 && this.canDoubleJumpTrigger) {
-      this.velocity = this.jumpForce * 0.85; // 第二跳稍微弱一點點，比較有層次感
+      this.velocity = this.jumpForce * 0.85; 
       this.jumpCount = 2;
     }
-    // 如果本來在地板上直接舉雙手，就直接觸發第一跳
     if (this.y === this.baseY && !this.isSliding && this.jumpCount === 0) {
       this.velocity = this.jumpForce;
       this.jumpCount = 1;
@@ -238,17 +241,15 @@ class Player {
     this.velocity += this.gravity;
     this.y += this.velocity;
 
-    // 落地重置跳躍次數
     if (this.y >= this.baseY && !this.isSliding) {
       this.y = this.baseY;
       this.velocity = 0;
-      this.jumpCount = 0; // 重置跳躍
-      this.canDoubleJumpTrigger = true; // 落地後重新允許二連跳觸發
+      this.jumpCount = 0; 
+      this.canDoubleJumpTrigger = true; 
     } else if (this.isSliding) {
       this.velocity = 0; 
     }
 
-    // 當角色從第一跳的上升階段轉為下降階段時，開啟二連跳的觸發開關
     if (this.y < this.baseY && this.velocity > -2) {
       this.canDoubleJumpTrigger = true;
     }
@@ -284,7 +285,7 @@ class Obstacle {
     } else if (this.type === 'high') {
       this.w = 40;
       this.h = 40;
-      this.y = height - GROUND_Y_OFFSET - 95; // 95 是為了讓它在空中，讓玩家可以滑行通過
+      this.y = height - GROUND_Y_OFFSET - 95; 
     }
   }
 
