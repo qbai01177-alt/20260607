@@ -123,10 +123,10 @@ function draw() {
 
     // 狀態指令流
     if (leftZoneHandUp && rightZoneHandUp) { 
-      debugMessage = "雙手高舉：發動原地垂直二連跳（最高天際線）！";
+      debugMessage = "雙手高舉：發動原地垂直二連跳（低重力漫步）！";
       player.slide(false); player.doubleJump(); 
     } else if (leftZoneHandUp) {
-      debugMessage = "左邊舉手：原地垂直單跳（高度翻倍調高 x2）！";
+      debugMessage = "左邊舉手：原地垂直單跳（低重力 2.3 倍高）！";
       player.slide(false); player.jump();
     } else if (rightZoneHandUp) {
       debugMessage = "右邊舉手：鎖定貼地縮體滑行！";
@@ -252,15 +252,16 @@ function touchStarted() { checkButtonAction(); }
 function windowResized() { resizeCanvas(windowWidth, windowHeight); if (player) player.baseY = height - PLAYER_START_Y_OFFSET; }
 
 // ==========================================
-// 🧱 類別一：遊戲主角 (Player Class) - 🌟 左手大高度飛躍版
+// 🧱 類別一：遊戲主角 (Player Class) - 🌟 低重力完美漂浮版
 // ==========================================
 class Player {
   constructor(x, y) {
     this.x = x; this.y = y; this.baseY = y; this.w = 64; this.h = 56; this.baseH = 56;         
     
-    this.gravity = 0.22;     
+    // 🌟 核心配平：降低重力，微調起跳力道，完美維持 2.3 倍高且帶有優雅漂浮滯空感
+    this.gravity = 0.14;     // 重力調低到 0.14（原本 0.22），角色下落變緩慢
     this.velocity = 0;       
-    this.jumpForce = -8.2;   // 🌟 核心配平：從 -6.6 大幅調升至 -8.2！單手原地跳躍高度完美翻倍
+    this.jumpForce = -7.5;   // 配合低重力，推力改為 -7.5，依然完美直衝 2.3 倍身位高
     this.isSliding = false;  
     this.jumpCount = 0;      
     this.canDoubleJumpTrigger = true; 
@@ -281,7 +282,7 @@ class Player {
 
   doubleJump() {
     if (this.y < this.baseY && this.jumpCount === 1 && this.canDoubleJumpTrigger) {
-      this.velocity = -5.8; 
+      this.velocity = -4.6; // 空中二次垂直大跨步
       this.jumpCount = 2; 
       for (let i = 0; i < 15; i++) effects.push(new ParticleEffect(this.x + this.w / 2, this.y + this.h / 2));
     }
@@ -297,8 +298,8 @@ class Player {
     if (!this.isSliding) { this.velocity += this.gravity; this.y += this.velocity; }
     if (this.y >= this.baseY && !this.isSliding) { this.y = this.baseY; this.velocity = 0; this.jumpCount = 0; this.canDoubleJumpTrigger = true; }
     
-    // 當快要升到單跳頂端（速度緩慢下來時），立刻解放二連跳
-    if (this.y < this.baseY && this.velocity > -2.5) {
+    // 當單跳快要升到最頂端、準備往下墜時，立刻解放二連跳
+    if (this.y < this.baseY && this.velocity > -2.0) {
       this.canDoubleJumpTrigger = true;
     }
 
