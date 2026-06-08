@@ -110,7 +110,7 @@ function draw() {
     }
   }
 
-  // --- 3. 根據雙手狀態觸發遊戲動作 ---
+  // --- 3. 根據雙手狀態觸差遊戲動作 ---
   if (modelLoaded && !gameOver) {
     if (leftHandUp && rightHandUp) { 
       debugMessage = "雙手舉起：二連跳！";
@@ -186,7 +186,7 @@ function draw() {
   text("得分: " + score, 30, 30);
   text("動態偵測: " + debugMessage, 30, 70);
   textSize(14);
-  text("【玩法提示】舉左手 = 慢速置空 1 秒跳躍 | 舉右手 = 平地縮身滑行 | 雙手舉起 = 二連跳", 30, 110);
+  text("【玩法提示】舉左手 = 太空慢動作 2 秒跳躍 | 舉右手 = 平地縮身滑行 | 雙手舉起 = 二連跳", 30, 110);
 }
 
 function gotHands(results) {
@@ -224,16 +224,17 @@ class Player {
     this.h = 56;             
     this.baseH = 56;         
     
-    // 🌟 精準修改：調整物理引擎參數，達成「完美置空 1 秒鐘」
-    this.gravity = 0.35;     // 大幅降低重力速度（原本 0.72），讓下落變得極度輕盈
+    // 🌟 核心重調：完美調校成「在空中滯留整整 2 秒鐘」的物理公式
+    this.gravity = 0.09;     // 極低的微重力加速度，讓下落極度緩慢
     this.velocity = 0;       
-    this.jumpForce = -10.5;  // 重新匹配起跳推力，維持相同的跳躍高度，但強制拉長滯空時間
+    this.jumpForce = -5.4;   // 起跳速度配合微重力，維持正常跳躍高度，但延長空中的時間
     this.isSliding = false;  
     this.jumpCount = 0;      
 
     // 精靈圖切圖規格屬性
     this.runAnim = { frame: 0, speed: 0.25, count: 8, w: 32, h: 24 };
-    this.jumpAnim = { frame: 0, speed: 0.13, count: 8, w: 37, h: 28 }; // 配合 1 秒置空時間，放慢跳躍動作切換速率
+    // 🌟 核心調整：放慢跳躍動畫的切換速度（0.13 -> 0.065），讓它在 2 秒內剛好把翻滾動作做完一遍，不再瘋狂抽搐！
+    this.jumpAnim = { frame: 0, speed: 0.065, count: 8, w: 37, h: 28 }; 
     this.slideAnim = { frame: 0, speed: 0.15, count: 2, w: 30, h: 22 };
   }
 
@@ -244,8 +245,7 @@ class Player {
   }
 
   doubleJump() {
-    // 支援空中的二連跳動作，給予輕微的二次上浮力
-    if (this.y < this.baseY && this.velocity > -3) {
+    if (this.y < this.baseY && this.velocity > -1.5) {
       this.velocity = this.jumpForce * 0.75;
     }
   }
@@ -345,9 +345,9 @@ class Obstacle {
 
   display() {
     if (this.type === 'low') {
-      fill('#38B000'); // 地面綠色障礙物
+      fill('#38B000'); 
     } else {
-      fill('#D00000'); // 懸空紅色障礙物
+      fill('#D00000'); 
     }
     rect(this.x, this.y, this.w, this.h, 5);
   }
