@@ -121,12 +121,12 @@ function draw() {
       }
     }
 
-    // 萬無一失的區域指令流
+    // --- 🌟 狀態指令流：單手與雙手高度做出絕對階層化分流 ---
     if (leftZoneHandUp && rightZoneHandUp) { 
-      debugMessage = "雙手高舉：原地垂直二連跳（超高騰空）！";
+      debugMessage = "雙手高舉：發動原地垂直二連跳（超高天際線）！";
       player.slide(false); player.doubleJump(); 
     } else if (leftZoneHandUp) {
-      debugMessage = "左邊舉手：原地垂直起跳兩個身位！";
+      debugMessage = "左邊舉手：原地垂直單跳（中階高度）！";
       player.slide(false); player.jump();
     } else if (rightZoneHandUp) {
       debugMessage = "右邊舉手：鎖定貼地縮體滑行！";
@@ -150,8 +150,11 @@ function draw() {
       }
     }
 
+    // 更新與繪製障礙物（內建新手導引提示系統）
     for (let i = obstacles.length - 1; i >= 0; i--) {
-      obstacles[i].update(); obstacles[i].display(); 
+      obstacles[i].update(); 
+      obstacles[i].display(player.x); // 🌟 傳入玩家的 X 座標來計算提示何時亮起
+      
       if (obstacles[i].hits(player)) gameState = 'GAMEOVER'; 
       if (obstacles[i].x + obstacles[i].w < player.x && !obstacles[i].passed) {
         score += 10; obstacles[i].passed = true;
@@ -250,21 +253,16 @@ function touchStarted() { checkButtonAction(); }
 function windowResized() { resizeCanvas(windowWidth, windowHeight); if (player) player.baseY = height - PLAYER_START_Y_OFFSET; }
 
 // ==========================================
-// 🧱 類別一：遊戲主角 (Player Class) - 🌟 垂直高空飄逸版
+// 🧱 類別一：遊戲主角 (Player Class) - 🌟 高度階層化配平版
 // ==========================================
 class Player {
   constructor(x, y) {
-    this.x = x; 
-    this.y = y;
-    this.baseY = y;          
-    this.w = 64;             
-    this.h = 56;             
-    this.baseH = 56;         
+    this.x = x; this.y = y; this.baseY = y; this.w = 64; this.h = 56; this.baseH = 56;         
     
-    // 🌟 核心重配：大幅減輕重力，拉高推力，達成原地垂直飛躍 1-2 個身位！
-    this.gravity = 0.18;     // 重力大幅降至 0.18，角色在半空中會非常輕盈
+    // 🌟 核心配平：微調重力與推力，讓單手跳跟雙手跳的高度差距非常明顯！
+    this.gravity = 0.22;     // 稍微抓回一點重力感
     this.velocity = 0;       
-    this.jumpForce = -7.5;   // 配合低重力，這股垂直向上的初速度能保證原地蹦起 1-2 個身位
+    this.jumpForce = -5.2;   // 🌟 單手起跳力道：剛好躍起 1.5 個身位，用來對付低綠方塊
     this.isSliding = false;  
     this.jumpCount = 0;      
     this.canDoubleJumpTrigger = true; 
@@ -284,9 +282,8 @@ class Player {
   }
 
   doubleJump() {
-    // 🌟 二連跳再度垂直噴射，直接衝上原本兩倍的高空！
     if (this.y < this.baseY && this.jumpCount === 1 && this.canDoubleJumpTrigger) {
-      this.velocity = -6.5; // 在空中額外疊加獨立的垂直推力
+      this.velocity = -5.8; // 🌟 雙手齊舉：注入超強空中疊加推力，直衝兩倍以上高度！
       this.jumpCount = 2; 
       for (let i = 0; i < 15; i++) effects.push(new ParticleEffect(this.x + this.w / 2, this.y + this.h / 2));
     }
@@ -299,21 +296,11 @@ class Player {
   }
 
   update() {
-    if (!this.isSliding) { 
-      this.velocity += this.gravity; 
-      this.y += this.velocity; 
-    }
+    if (!this.isSliding) { this.velocity += this.gravity; this.y += this.velocity; }
+    if (this.y >= this.baseY && !this.isSliding) { this.y = this.baseY; this.velocity = 0; this.jumpCount = 0; this.canDoubleJumpTrigger = true; }
     
-    // 落地檢查
-    if (this.y >= this.baseY && !this.isSliding) {
-      this.y = this.baseY; 
-      this.velocity = 0; 
-      this.jumpCount = 0; 
-      this.canDoubleJumpTrigger = true; 
-    }
-
-    // 當快要升到單跳頂端（速度緩慢下來時），立刻解放二連跳觸發鎖
-    if (this.y < this.baseY && this.velocity > -2.5) {
+    // 當快要升到單跳頂端（速度緩慢下來時），立刻解放二連跳
+    if (this.y < this.baseY && this.velocity > -2.0) {
       this.canDoubleJumpTrigger = true;
     }
 
@@ -332,7 +319,7 @@ class Player {
     };
 
     if (this.isSliding) {
-      this.y = this.baseY + (this.baseH - this.h); // 完美貼地
+      this.y = this.baseY + (this.baseH - this.h); 
       this.slideAnim.frame = 0; 
       drawAnimation(this.slideAnim, slideSpriteSheet);
     } else if (this.y < this.baseY) {
@@ -344,7 +331,7 @@ class Player {
 }
 
 // ==========================================
-// 🌟 特效與障礙物類別
+// 🌟 特效類別
 // ==========================================
 class RingEffect {
   constructor(x, y) { this.x = x; this.y = y; this.size = 10; this.maxSize = 90; this.alpha = 255; this.speed = 4; }
@@ -358,6 +345,10 @@ class ParticleEffect {
   display() { noStroke(); let c = color(this.color); c.setAlpha(this.alpha); fill(c); ellipse(this.x, this.y, this.size, this.size); }
   isDead() { return this.alpha <= 0; }
 }
+
+// ==========================================
+// 🚧 類別二：障礙物 (Obstacle Class) - 🌟 內建動態新手導引系統
+// ==========================================
 class Obstacle {
   constructor(type) {
     this.type = type; this.x = width; this.speed = 4.5; this.passed = false;
@@ -365,11 +356,37 @@ class Obstacle {
     else if (this.type === 'double') { this.w = 30; this.h = 90; this.y = height - GROUND_Y_OFFSET - this.h; } 
     else if (this.type === 'high') { this.w = 40; this.h = 25; this.y = height - GROUND_Y_OFFSET - 52; }
   }
+  
   update() { this.x -= this.speed; }
-  display() {
+  
+  // 🌟 核心修改：接收玩家的 X 座標，動態判斷何時觸發「新手舉手訓練提示」
+  display(playerX) {
+    // 1. 先繪製障礙物本體
     if (this.type === 'low') { fill('#38B000'); rect(this.x, this.y, this.w, this.h, 5); } 
     else if (this.type === 'double') { fill('#0077B6'); rect(this.x, this.y, this.w, this.h, 5); stroke(255, 100); strokeWeight(2); line(this.x, this.y + 45, this.x + this.w, this.y + 45); } 
     else { fill('#D00000'); rect(this.x, this.y, this.w, this.h, 5); }
+
+    // 2. 🌟 核心機制：新手訓練提示！當障礙物逼近主角 (距離在 280 像素以內，且還沒走過去)
+    if (this.x > playerX && this.x - playerX < 280) {
+      push();
+      textAlign(CENTER, BOTTOM);
+      textSize(18);
+      textStyle(BOLD);
+      
+      // 依據不同障礙物，在上方彈出呼吸閃爍的亮黃色提示文字
+      if (this.type === 'low') {
+        fill('#FFD700'); // 亮黃色
+        text("【舉左手！跳躍】", this.x + this.w / 2, this.y - 15);
+      } else if (this.type === 'double') {
+        fill('#FFD700');
+        text("【雙手舉！二連跳】", this.x + this.w / 2, this.y - 15);
+      } else if (this.type === 'high') {
+        fill('#FFD700');
+        text("【舉右手！滑行】", this.x + this.w / 2, this.y - 15);
+      }
+      pop();
+    }
   }
+  
   hits(player) { return (player.x < this.x + this.w && player.x + player.w > this.x && player.y < this.y + this.h && player.y + player.h > this.y); }
 }
