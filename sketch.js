@@ -4,9 +4,12 @@ let handPose;
 let hands = [];
 
 // --- 角色精靈圖片 ---
-let runSpriteSheet;   // 跑步動畫
-let jumpSpriteSheet;  // 跳躍動畫
-let slideSpriteSheet; // 滑行動畫
+let runSpriteSheet;   
+let jumpSpriteSheet;  
+let slideSpriteSheet; 
+
+// --- 特效管理陣列 ---
+let effects = []; // 🌟 新增：用來儲存畫面上所有光圈與粒子特效
 
 // --- 🎮 針對體感延遲優化後的遊戲設定常數 ---
 const HAND_RAISE_THRESHOLD = 0.45; 
@@ -23,11 +26,11 @@ let score = 0;
 let modelLoaded = false; 
 let nextObstacleFrame = 0;
 
-// 遊戲狀態機設定 ('START' = 開始選單, 'PLAYING' = 遊戲中, 'GAMEOVER' = 結算)
+// 遊戲狀態機設定
 let gameState = 'START'; 
 let gameStartTime = 0; 
 
-// 按鈕的尺寸與位置常數
+// 按鈕常數
 const BTN_W = 200;
 const BTN_H = 60;
 
@@ -111,13 +114,13 @@ function draw() {
       }
     }
 
-    // 🌟 完美整合二連跳狀態機控制流
+    // 狀態控制流
     if (leftHandUp && rightHandUp) { 
-      debugMessage = "雙手舉起：發動二連跳（兩倍高度）！";
+      debugMessage = "雙手舉起：發動二連跳（空中光芒爆發）！";
       player.slide(false);
-      player.doubleJump(); // 觸發二連跳物理推力
+      player.doubleJump(); 
     } else if (leftHandUp) {
-      debugMessage = "舉左手：發動基礎單次跳躍！";
+      debugMessage = "舉左手：發動向前飛躍跳躍！";
       player.slide(false);
       player.jump();
     } else if (rightHandUp) {
@@ -134,18 +137,13 @@ function draw() {
     let timeElapsed = (millis() - gameStartTime) / 1000; 
     let remainingTime = 5 - floor(timeElapsed); 
 
-    // 🌟 關卡設計優化：40% 綠色低、30% 藍色雙層高、30% 紅色卡脖
     if (timeElapsed >= 5) {
       if (frameCount > nextObstacleFrame) {
         let type;
         let rand = random(0, 100);
-        if (rand < 40) {
-          type = 'low';      // 40% 綠色低方塊
-        } else if (rand < 70) {
-          type = 'double';   // 30% 🌟 藍色雙層高方塊（逼出二連跳）
-        } else {
-          type = 'high';     // 30% 紅色卡脖子方塊（滑行通過）
-        }
+        if (rand < 40) type = 'low';      
+        else if (rand < 70) type = 'double';   
+        else type = 'high';     
         obstacles.push(new Obstacle(type));
         nextObstacleFrame = frameCount + random(OBSTACLE_MIN_INTERVAL, OBSTACLE_MAX_INTERVAL); 
       }
@@ -165,6 +163,15 @@ function draw() {
       }
 
       if (obstacles[i].x < -50) obstacles.splice(i, 1);
+    }
+
+    // 🌟 核心更新：繪製、更新並自動清理所有粒子與光圈特效
+    for (let i = effects.length - 1; i >= 0; i--) {
+      effects[i].update();
+      effects[i].display();
+      if (effects[i].isDead()) {
+        effects.splice(i, 1);
+      }
     }
 
     player.display();
@@ -191,57 +198,41 @@ function drawStartMenu() {
   fill(0, 0, 0, 100);
   noStroke();
   rect(0, 0, width, height);
-
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(50);
   text("AI 體感跑酷冒險", width / 2, height / 2 - 120);
-  
   textSize(20);
   fill('#E0AFA0');
   text("動態提示: " + debugMessage, width / 2, height / 2 - 50);
 
   let btnX = width / 2 - BTN_W / 2;
   let btnY = height / 2 + 20;
-
-  if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) {
-    fill('#E85D04'); 
-  } else {
-    fill('#F48C06'); 
-  }
+  if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) fill('#E85D04'); 
+  else fill('#F48C06'); 
   rect(btnX, btnY, BTN_W, BTN_H, 15); 
 
   fill(255);
   textSize(24);
   text("開始遊戲", width / 2, height / 2 + 50);
-
-  textSize(16);
-  fill(255, 200);
-  text("【新玩法說明】雙手同時舉起 = 二連跳（跳高兩倍避開藍色雙層障礙）", width / 2, height / 2 + 150);
 }
 
 function drawGameOverMenu() {
   fill(0, 0, 0, 160); 
   noStroke();
   rect(0, 0, width, height);
-
   fill('#D00000');
   textAlign(CENTER, CENTER);
   textSize(70);
   text("GAME OVER", width / 2, height / 2 - 120);
-
   fill(255);
   textSize(32);
   text("最終得分: " + score, width / 2, height / 2 - 40);
 
   let btnX = width / 2 - BTN_W / 2;
   let btnY = height / 2 + 30;
-
-  if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) {
-    fill('#3A86C8'); 
-  } else {
-    fill('#4EA8DE'); 
-  }
+  if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) fill('#3A86C8'); 
+  else fill('#4EA8DE'); 
   rect(btnX, btnY, BTN_W, BTN_H, 15);
 
   fill(255);
@@ -264,21 +255,11 @@ function gotHands(results) {
 
 function checkButtonAction() {
   let btnX = width / 2 - BTN_W / 2;
-
-  if (gameState === 'START') {
-    let btnY = height / 2 + 20;
+  if (gameState === 'START' || gameState === 'GAMEOVER') {
+    let btnY = (gameState === 'START') ? height / 2 + 20 : height / 2 + 30;
     if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) {
       obstacles = [];
-      score = 0;
-      player = new Player(PLAYER_START_X, height - PLAYER_START_Y_OFFSET);
-      gameState = 'PLAYING';
-      gameStartTime = millis(); 
-      return true; 
-    }
-  } else if (gameState === 'GAMEOVER') {
-    let btnY = height / 2 + 30;
-    if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) {
-      obstacles = [];
+      effects = []; // 清空特效
       score = 0;
       player = new Player(PLAYER_START_X, height - PLAYER_START_Y_OFFSET);
       gameState = 'PLAYING';
@@ -289,68 +270,63 @@ function checkButtonAction() {
   return false;
 }
 
-function mousePressed() {
-  let clicked = checkButtonAction();
-  if (clicked) return false; 
-}
-
-function touchStarted() {
-  let clicked = checkButtonAction();
-  if (clicked) return false; 
-}
+function mousePressed() { checkButtonAction(); }
+function touchStarted() { checkButtonAction(); }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  if (player) {
-    player.baseY = height - PLAYER_START_Y_OFFSET;
-    if (!player.isSliding && player.y >= player.baseY) {
-      player.y = player.baseY;
-    }
-  }
+  if (player) player.baseY = height - PLAYER_START_Y_OFFSET;
 }
 
 // ==========================================
-// 🧱 類別一：遊戲主角 (Player Class) - 完整實裝二連跳
+// 🧱 類別一：遊戲主角 (Player Class)
 // ==========================================
 class Player {
   constructor(x, y) {
-    this.x = x;
+    this.startX = x;         
+    this.x = x;              
     this.y = y;
     this.baseY = y;          
     this.w = 64;             
     this.h = 56;             
     this.baseH = 56;         
     
-    // 物理引擎底層配平
     this.gravity = 0.5;      
     this.velocity = 0;       
-    this.jumpForce = -11.5;  // 單次跳躍推力
+    this.jumpForce = -11.5;  
     this.isSliding = false;  
     
-    // 🌟 二連跳控制狀態變數
-    this.jumpCount = 0;      // 記錄目前跳了幾次（0=地面, 1=單跳, 2=二連跳）
-    this.canDoubleJumpTrigger = true; // 防抖動鎖，確保在空中雙手舉起時只觸發一次二連跳
+    this.jumpCount = 0;      
+    this.canDoubleJumpTrigger = true; 
+
+    this.runAnim = { frame: 0, speed: 0.25, count: 8, w: 32, h: 24 };
+    this.jumpAnim = { frame: 0, speed: 0.11, count: 8, w: 37, h: 28 }; 
+    this.slideAnim = { frame: 0, speed: 0.15, count: 2, w: 30, h: 22 };
   }
 
   jump() {
-    // 只有在地面上時，舉左手才能發動第一次單跳
     if (this.y === this.baseY && !this.isSliding && this.jumpCount === 0) {
       this.velocity = this.jumpForce;
       this.jumpCount = 1;
-      this.canDoubleJumpTrigger = false; // 先上鎖，等到最高點往下墜時才放開，方便觸發二連跳
+      this.canDoubleJumpTrigger = false; 
+      
+      // 🌟 特效觸發：起跳瞬間在地面產生一個「白色擴散光圈」
+      effects.push(new RingEffect(this.x + this.w / 2, this.baseY + this.h));
     }
   }
 
   doubleJump() {
-    // 🌟 二連跳核心機制：當處在單跳半空中、且鎖解除時，雙手舉起直接二次起跳
     if (this.y < this.baseY && this.jumpCount === 1 && this.canDoubleJumpTrigger) {
-      this.velocity = this.jumpForce * 1.25; // 🌟 給予超強二次衝力，直衝兩倍高！
-      this.jumpCount = 2; // 進入二連跳狀態
+      this.velocity = this.jumpForce * 1.25; 
+      this.jumpCount = 2; 
+      
+      // 🌟 特效觸發：空中發動二連跳時，向四周噴射 15 顆黃金粒子星星！
+      for (let i = 0; i < 15; i++) {
+        effects.push(new ParticleEffect(this.x + this.w / 2, this.y + this.h / 2));
+      }
     }
-    // 防呆：如果玩家在地上直接兩手齊舉，直接視為發動第一跳
     if (this.y === this.baseY && !this.isSliding && this.jumpCount === 0) {
-      this.velocity = this.jumpForce;
-      this.jumpCount = 1;
+      this.jump(); // 觸發第一跳
     }
   }
 
@@ -370,23 +346,28 @@ class Player {
     this.velocity += this.gravity;
     this.y += this.velocity;
 
-    // 落地重置所有跳躍計數器
     if (this.y >= this.baseY && !this.isSliding) {
       this.y = this.baseY;
       this.velocity = 0;
-      this.jumpCount = 0; // 🌟 踩到地面，二連跳次數歸零
+      this.jumpCount = 0; 
       this.canDoubleJumpTrigger = true;
+      this.x = this.startX; 
     } else if (this.isSliding) {
       this.velocity = 0; 
       this.y = this.baseY; 
+      this.x = this.startX;
     }
 
-    // 🌟 物理黃金點判定：當第一跳衝到最頂端、準備往下掉（速度 > -2）時，把二連跳觸發鎖打開
+    if (this.y < this.baseY) {
+      let forwardDistance = (this.jumpCount === 2) ? 160 : 80;
+      let heightRatio = (this.baseY - this.y) / 150; 
+      this.x = this.startX + heightRatio * forwardDistance;
+    }
+
     if (this.y < this.baseY && this.velocity > -2) {
       this.canDoubleJumpTrigger = true;
     }
 
-    // 影格計時
     if (this.y === this.baseY && !this.isSliding) {
       this.runAnim.frame = (this.runAnim.frame + this.runAnim.speed) % this.runAnim.count;
     } else if (this.y < this.baseY) {
@@ -395,11 +376,6 @@ class Player {
       this.slideAnim.frame = (this.slideAnim.frame + this.slideAnim.speed) % this.slideAnim.count;
     }
   }
-
-  // 獨立精靈圖屬性放後方
-  runAnim = { frame: 0, speed: 0.25, count: 8, w: 32, h: 24 };
-  jumpAnim = { frame: 0, speed: 0.11, count: 8, w: 37, h: 28 }; 
-  slideAnim = { frame: 0, speed: 0.15, count: 2, w: 30, h: 22 };
 
   display() {
     const drawAnimation = (anim, sheet) => {
@@ -411,32 +387,88 @@ class Player {
         rect(this.x, this.y, this.w, this.h);
         return; 
       }
-
       let currentFrameIndex = floor(anim.frame);
       let sx = currentFrameIndex * anim.w; 
-      
       let displayHeight = (this.isSliding) ? this.baseH : this.h;
       let drawY = (this.isSliding) ? this.baseY : this.y;
 
-      image(
-        sheet,
-        this.x, drawY, this.w, displayHeight, 
-        sx, 0, anim.w, anim.h          
-      );
+      image(sheet, this.x, drawY, this.w, displayHeight, sx, 0, anim.w, anim.h);
     };
 
-    if (this.isSliding) {
-      drawAnimation(this.slideAnim, slideSpriteSheet);
-    } else if (this.y < this.baseY) {
-      drawAnimation(this.jumpAnim, jumpSpriteSheet); // 🌟 跳躍與二連跳共用同一套帥氣空翻圖片
-    } else {
-      drawAnimation(this.runAnim, runSpriteSheet);
-    }
+    if (this.isSliding) drawAnimation(this.slideAnim, slideSpriteSheet);
+    else if (this.y < this.baseY) drawAnimation(this.jumpAnim, jumpSpriteSheet); 
+    else drawAnimation(this.runAnim, runSpriteSheet);
   }
 }
 
 // ==========================================
-// 🚧 類別二：障礙物 (Obstacle Class) - 新增藍色雙層高障礙
+// 🌟 特效類別一：起跳地面擴散光圈 (RingEffect)
+// ==========================================
+class RingEffect {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.size = 10;       // 起始圓圈大小
+    this.maxSize = 90;    // 最大擴散半徑
+    this.alpha = 255;     // 初始不透明度
+    this.speed = 4;       // 擴散速度
+  }
+
+  update() {
+    this.size += this.speed;
+    this.alpha -= 10;     // 隨著變大慢慢變透明
+  }
+
+  display() {
+    noFill();
+    stroke(255, 255, 255, this.alpha); // 白色光圈
+    strokeWeight(3);
+    ellipse(this.x, this.y, this.size, this.size / 2); // 扁平橢圓，貼合地面感
+  }
+
+  isDead() {
+    return this.alpha <= 0 || this.size >= this.maxSize;
+  }
+}
+
+// ==========================================
+// 🌟 特效類別二：空中二連跳爆發粒子 (ParticleEffect)
+// ==========================================
+class ParticleEffect {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    // 隨機向四周炸開的速度向量
+    this.vx = random(-4, 4);
+    this.vy = random(-6, 2);
+    this.alpha = 255;
+    this.size = random(6, 12);
+    // 隨機挑選亮眼的黃色/橘色粒子
+    this.color = random(['#FFD700', '#FF8C00', '#FFF3B0']); 
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.15; // 粒子微弱下墜重力
+    this.alpha -= 8; // 漸漸淡出
+  }
+
+  display() {
+    noStroke();
+    let c = color(this.color);
+    c.setAlpha(this.alpha); // 套用淡出透明度
+    fill(c);
+    ellipse(this.x, this.y, this.size, this.size);
+  }
+
+  isDead() {
+    return this.alpha <= 0;
+  }
+}
+
+// ==========================================
+// 🚧 類別二：障礙物 (Obstacle Class)
 // ==========================================
 class Obstacle {
   constructor(type) {
@@ -448,37 +480,32 @@ class Obstacle {
     if (this.type === 'low') {
       this.w = 30;
       this.h = 45;      
-      this.y = height - GROUND_Y_OFFSET - this.h; // 綠色低方塊
+      this.y = height - GROUND_Y_OFFSET - this.h; 
     } else if (this.type === 'double') {
-      // 🌟 核心新增：綠色方塊直接疊兩塊的「高難度藍色大方塊」
       this.w = 30;
-      this.h = 90;      // 高度直接翻倍（45 * 2 = 90）！單跳保證會撞
+      this.h = 90;      
       this.y = height - GROUND_Y_OFFSET - this.h; 
     } else if (this.type === 'high') {
       this.w = 40;
       this.h = 25;      
-      this.y = height - GROUND_Y_OFFSET - 52; // 紅色卡脖方塊
+      this.y = height - GROUND_Y_OFFSET - 52; 
     }
   }
 
-  update() {
-    this.x -= this.speed; 
-  }
+  update() { this.x -= this.speed; }
 
   display() {
     if (this.type === 'low') {
-      fill('#38B000'); // 綠色
+      fill('#38B000'); 
       rect(this.x, this.y, this.w, this.h, 5);
     } else if (this.type === 'double') {
-      // 🌟 核心新增：外觀呈現精美的藍色，且視覺上看得出是兩個綠色方塊疊在一起
-      fill('#0077B6'); // 漂亮的深藍色
+      fill('#0077B6'); 
       rect(this.x, this.y, this.w, this.h, 5);
-      // 畫一條內部分隔線，讓老師一眼看出這是「兩塊疊在一起」的精緻設計
       stroke(255, 100);
       strokeWeight(2);
       line(this.x, this.y + 45, this.x + this.w, this.y + 45);
     } else {
-      fill('#D00000'); // 紅色
+      fill('#D00000'); 
       rect(this.x, this.y, this.w, this.h, 5);
     }
   }
