@@ -9,7 +9,7 @@ let jumpSpriteSheet;  // 跳躍動畫
 let slideSpriteSheet; // 滑行動畫
 
 // --- 🎮 針對體感延遲優化後的遊戲設定常數 ---
-const HAND_RAISE_THRESHOLD = 0.45; // 舉手判定的閾值
+const HAND_RAISE_THRESHOLD = 0.45; // 舉手判定的閾值 (y軸百分比)
 const OBSTACLE_MIN_INTERVAL = 140; // 提高間隔
 const OBSTACLE_MAX_INTERVAL = 220; 
 const GROUND_Y_OFFSET = 100;       // 地板線距離底部的高度
@@ -35,7 +35,7 @@ let debugMessage = "正在載入資源...";
 
 function preload() {
   console.log("Preload: 正在載入圖片...");
-  // 🌟 對準你的資料夾「1」
+  // 對準你的資料夾 1
   const runPath = '1/dash.png';
   const jumpPath = '1/jump.png';
   const slidePath = '1/stand.png';
@@ -62,7 +62,6 @@ function setup() {
   capture.hide();
  
   debugMessage = "正在載入 AI 模型，請稍候...";
-  // 🌟 核心修正：遵循最新版 ml5 規範，初始化不傳 capture
   handPose = ml5.handPose({ flipped: true }, modelReady);
 
   // 初始化遊戲主角
@@ -122,7 +121,7 @@ function draw() {
       player.jump();
       player.slide(false);
     } else if (rightHandUp) {
-      debugMessage = "舉右手：滑地避障！";
+      debugMessage = "舉右手：平地縮體滑行！";
       player.slide(true);
     } else {
       if (hands.length > 0) debugMessage = "雙手放低：原地奔跑中";
@@ -131,9 +130,16 @@ function draw() {
 
     player.update();
 
-    // --- 4. 障礙物管理系統 ---
+    // --- 4. 障礙物管理系統（🌟 已調整出現率 綠 7 : 紅 3） ---
     if (frameCount > nextObstacleFrame) {
-      let type = random(['high', 'low']); 
+      let type;
+      let rand = random(0, 100);
+      if (rand < 70) {
+        type = 'low';   // 70% 機率出現綠色地面障礙物
+      } else {
+        type = 'high';  // 30% 機率出現紅色懸空障礙物
+      }
+      
       obstacles.push(new Obstacle(type));
       nextObstacleFrame = frameCount + random(OBSTACLE_MIN_INTERVAL, OBSTACLE_MAX_INTERVAL); 
     }
@@ -180,7 +186,7 @@ function draw() {
   text("得分: " + score, 30, 30);
   text("動態偵測: " + debugMessage, 30, 70);
   textSize(14);
-  text("【玩法提示】舉左手 = 跳躍 | 舉右手 = 滑行 | 雙手舉起 = 二連跳", 30, 110);
+  text("【玩法提示】舉左手 = 緩衝跳躍 | 舉右手 = 平地縮身滑行 | 雙手舉起 = 二連跳", 30, 110);
 }
 
 function gotHands(results) {
@@ -218,15 +224,16 @@ class Player {
     this.h = 56;             
     this.baseH = 56;         
     
-    this.gravity = 1.2;      
+    // 🌟 調整重力與跳躍力道：完美增加空中懸空滯留時間約 0.3 秒
+    this.gravity = 0.72;     // 降低重力（原本 1.2），讓下落變慢
     this.velocity = 0;       
-    this.jumpForce = -18;    
+    this.jumpForce = -13.8;  // 調輕跳躍初速度（原本 -18），配合輕重力達到相同的跳躍高度，但延長滯空時間
     this.isSliding = false;  
     this.jumpCount = 0;      
 
     // 精靈圖切圖規格屬性
     this.runAnim = { frame: 0, speed: 0.25, count: 8, w: 32, h: 24 };
-    this.jumpAnim = { frame: 0, speed: 0.2, count: 8, w: 37, h: 28 };
+    this.jumpAnim = { frame: 0, speed: 0.15, count: 8, w: 37, h: 28 }; // 稍微放慢跳躍動畫速率配合空中滯留
     this.slideAnim = { frame: 0, speed: 0.15, count: 2, w: 30, h: 22 };
   }
 
@@ -236,15 +243,24 @@ class Player {
     }
   }
 
+  doubleJump() {
+    // 支援在空中的二連跳動作
+    if (this.y < this.baseY && this.velocity > -4) {
+      this.velocity = this.jumpForce * 0.85;
+    }
+  }
+
   slide(isSlidingNow) {
     if (isSlidingNow && this.y === this.baseY) {
       this.isSliding = true;
-      this.h = this.baseH * 0.6; 
-      this.y = this.baseY + (this.baseH - this.h); 
+      // 🌟 核心修正：只縮小「碰撞箱」的高度到原本的 0.55 倍，讓障礙物可以穿過上方
+      this.h = this.baseH * 0.55; 
+      // 🌟 核心修正：Y軸座標維持在平地上（不作下沉位移演算），讓精靈圖不陷進地板
+      this.y = this.baseY; 
     } else if (!isSlidingNow) {
       this.isSliding = false;
       this.h = this.baseH;       
-      if (this.y > this.baseY) this.y = this.baseY;
+      this.y = this.baseY;
     }
   }
 
@@ -252,6 +268,7 @@ class Player {
     this.velocity += this.gravity;
     this.y += this.velocity;
 
+    // 落地檢查
     if (this.y >= this.baseY && !this.isSliding) {
       this.y = this.baseY;
       this.velocity = 0;
@@ -259,6 +276,7 @@ class Player {
       this.velocity = 0; 
     }
 
+    // 依據角色狀態更新計時影格
     if (this.y === this.baseY && !this.isSliding) {
       this.runAnim.frame = (this.runAnim.frame + this.runAnim.speed) % this.runAnim.count;
     } else if (this.y < this.baseY) {
@@ -281,9 +299,15 @@ class Player {
 
       let currentFrameIndex = floor(anim.frame);
       let sx = currentFrameIndex * anim.w; 
+      
+      // 🌟 修正：不論是跑步還是滑行，一律以主體的原始顯示尺寸 (this.w, this.baseH) 繪製圖片
+      // 這樣滑行時，圖片就不會被強行壓扁變形，而是維持在平地上原樣顯示，同時上方又有縮小的隱形碰撞箱保護！
+      let displayHeight = (this.isSliding) ? this.baseH : this.h;
+      let drawY = (this.isSliding) ? this.baseY : this.y;
+
       image(
         sheet,
-        this.x, this.y, this.w, this.h, 
+        this.x, drawY, this.w, displayHeight, 
         sx, 0, anim.w, anim.h          
       );
     };
@@ -325,9 +349,9 @@ class Obstacle {
 
   display() {
     if (this.type === 'low') {
-      fill('#38B000'); 
+      fill('#38B000'); // 地面綠色障礙物
     } else {
-      fill('#D00000'); 
+      fill('#D00000'); // 懸空紅色障礙物
     }
     rect(this.x, this.y, this.w, this.h, 5);
   }
