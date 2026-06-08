@@ -130,7 +130,7 @@ function draw() {
 
     player.update();
 
-    // --- 4. 障礙物管理系統（🌟 已調整出現率 綠 7 : 紅 3） ---
+    // --- 4. 障礙物管理系統（綠 7 : 紅 3） ---
     if (frameCount > nextObstacleFrame) {
       let type;
       let rand = random(0, 100);
@@ -186,7 +186,7 @@ function draw() {
   text("得分: " + score, 30, 30);
   text("動態偵測: " + debugMessage, 30, 70);
   textSize(14);
-  text("【玩法提示】舉左手 = 緩衝跳躍 | 舉右手 = 平地縮身滑行 | 雙手舉起 = 二連跳", 30, 110);
+  text("【玩法提示】舉左手 = 慢速置空 1 秒跳躍 | 舉右手 = 平地縮身滑行 | 雙手舉起 = 二連跳", 30, 110);
 }
 
 function gotHands(results) {
@@ -224,16 +224,16 @@ class Player {
     this.h = 56;             
     this.baseH = 56;         
     
-    // 🌟 調整重力與跳躍力道：完美增加空中懸空滯留時間約 0.3 秒
-    this.gravity = 0.72;     // 降低重力（原本 1.2），讓下落變慢
+    // 🌟 精準修改：調整物理引擎參數，達成「完美置空 1 秒鐘」
+    this.gravity = 0.35;     // 大幅降低重力速度（原本 0.72），讓下落變得極度輕盈
     this.velocity = 0;       
-    this.jumpForce = -13.8;  // 調輕跳躍初速度（原本 -18），配合輕重力達到相同的跳躍高度，但延長滯空時間
+    this.jumpForce = -10.5;  // 重新匹配起跳推力，維持相同的跳躍高度，但強制拉長滯空時間
     this.isSliding = false;  
     this.jumpCount = 0;      
 
     // 精靈圖切圖規格屬性
     this.runAnim = { frame: 0, speed: 0.25, count: 8, w: 32, h: 24 };
-    this.jumpAnim = { frame: 0, speed: 0.15, count: 8, w: 37, h: 28 }; // 稍微放慢跳躍動畫速率配合空中滯留
+    this.jumpAnim = { frame: 0, speed: 0.13, count: 8, w: 37, h: 28 }; // 配合 1 秒置空時間，放慢跳躍動作切換速率
     this.slideAnim = { frame: 0, speed: 0.15, count: 2, w: 30, h: 22 };
   }
 
@@ -244,18 +244,16 @@ class Player {
   }
 
   doubleJump() {
-    // 支援在空中的二連跳動作
-    if (this.y < this.baseY && this.velocity > -4) {
-      this.velocity = this.jumpForce * 0.85;
+    // 支援空中的二連跳動作，給予輕微的二次上浮力
+    if (this.y < this.baseY && this.velocity > -3) {
+      this.velocity = this.jumpForce * 0.75;
     }
   }
 
   slide(isSlidingNow) {
     if (isSlidingNow && this.y === this.baseY) {
       this.isSliding = true;
-      // 🌟 核心修正：只縮小「碰撞箱」的高度到原本的 0.55 倍，讓障礙物可以穿過上方
       this.h = this.baseH * 0.55; 
-      // 🌟 核心修正：Y軸座標維持在平地上（不作下沉位移演算），讓精靈圖不陷進地板
       this.y = this.baseY; 
     } else if (!isSlidingNow) {
       this.isSliding = false;
@@ -300,8 +298,6 @@ class Player {
       let currentFrameIndex = floor(anim.frame);
       let sx = currentFrameIndex * anim.w; 
       
-      // 🌟 修正：不論是跑步還是滑行，一律以主體的原始顯示尺寸 (this.w, this.baseH) 繪製圖片
-      // 這樣滑行時，圖片就不會被強行壓扁變形，而是維持在平地上原樣顯示，同時上方又有縮小的隱形碰撞箱保護！
       let displayHeight = (this.isSliding) ? this.baseH : this.h;
       let drawY = (this.isSliding) ? this.baseY : this.y;
 
