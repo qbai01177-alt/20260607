@@ -10,11 +10,9 @@ let slideSpriteSheet;
 
 // --- 特效與背景管理陣列 ---
 let effects = []; 
-let clouds = [];  // 🌟 新增：儲存天空雲朵的陣列
-
-// --- 遠近景山脈的滾動位移計數器 ---
-let farMountainX = 0; // 🌟 新增：遠山位移
-let nearHillX = 0;    // 🌟 新增：近丘位移
+let clouds = [];  
+let farMountainX = 0; 
+let nearHillX = 0;    
 
 // --- 🎮 針對體感延遲優化後的遊戲設定常數 ---
 const HAND_RAISE_THRESHOLD = 0.45; 
@@ -63,7 +61,6 @@ function modelReady() {
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-
   capture = createCapture(VIDEO, { flipped: true });
   capture.size(640, 480);
   capture.hide();
@@ -71,16 +68,13 @@ function setup() {
   handPose = ml5.handPose({ flipped: true }, modelReady);
   player = new Player(PLAYER_START_X, height - PLAYER_START_Y_OFFSET);
 
-  // 🌟 初始化產生 4 朵初始雲朵，讓畫面一開始不空洞
   for (let i = 0; i < 4; i++) {
     clouds.push(new Cloud(random(width), random(50, 150)));
   }
 }
 
 function draw() {
-  background('#C9ADA1'); // 溫暖的奶茶色基底
-
-  // 🌟 核心視覺更新：繪製多層次動態視差背景
+  background('#C9ADA1'); 
   drawParallaxBackground();
 
   // 繪製白色地板線
@@ -88,7 +82,6 @@ function draw() {
   strokeWeight(4);
   line(0, height - GROUND_Y_OFFSET, width, height - GROUND_Y_OFFSET); 
 
-  // 更新視訊尺寸位置
   videoWidth = width * 0.4; videoHeight = height * 0.4;
   videoX = width * 0.55; videoY = (height - videoHeight) / 2;
 
@@ -113,14 +106,14 @@ function draw() {
 
     // 狀態控制流
     if (handsUpCount >= 2) { 
-      debugMessage = "雙手舉起：發動垂直二連跳！";
+      debugMessage = "雙手舉起：發動原地垂直二連跳！";
       player.slide(false); player.doubleJump(); 
     } else if (handsUpCount === 1) {
       if (rightHandIsUp && hands.length === 1) {
-        debugMessage = "舉右手：平地縮體滑行避障！";
+        debugMessage = "舉右手：鎖定貼地縮體滑行！";
         player.slide(true);
       } else {
-        debugMessage = "手掌舉起：原地垂直跳躍！";
+        debugMessage = "手掌舉起：原地垂直起跳！";
         player.slide(false); player.jump();
       }
     } else {
@@ -151,7 +144,6 @@ function draw() {
       if (obstacles[i].x < -50) obstacles.splice(i, 1);
     }
 
-    // 更新特效
     for (let i = effects.length - 1; i >= 0; i--) {
       effects[i].update(); effects[i].display();
       if (effects[i].isDead()) effects.splice(i, 1);
@@ -172,76 +164,47 @@ function draw() {
   }
 }
 
-// 🌟 🌟 核心全新函式：動態生成多層次視差山脈與雲朵 🌟 🌟
 function drawParallaxBackground() {
-  let horizonY = height - GROUND_Y_OFFSET; // 地平線基準
-
-  // ---- 1. 最遠層：雲朵管理（時速 0.2） ----
-  if (gameState === 'PLAYING' && random(100) < 0.3) { // 機率定時生出新雲
-    clouds.push(new Cloud(width + 50, random(50, 140)));
-  }
+  let horizonY = height - GROUND_Y_OFFSET;
+  if (gameState === 'PLAYING' && random(100) < 0.3) clouds.push(new Cloud(width + 50, random(50, 140)));
   for (let i = clouds.length - 1; i >= 0; i--) {
     if (gameState === 'PLAYING') clouds[i].update();
     clouds[i].display();
     if (clouds[i].x < -150) clouds.splice(i, 1);
   }
-
-  // ---- 2. 中遠層：遠山剪影（時速 0.4） ----
   if (gameState === 'PLAYING') farMountainX -= 0.4;
-  fill('#B79A8F'); // 稍微深一點的半透明奶茶粉
-  noStroke();
-  beginShape();
-  vertex(0, height);
+  fill('#B79A8F'); noStroke(); beginShape(); vertex(0, height);
   for (let x = 0; x <= width; x += 10) {
-    // 使用正弦波數學公式，算出平滑起伏的山脈形狀
     let mountainY = horizonY - 140 + sin((x - farMountainX) * 0.005) * 45 + cos((x + farMountainX) * 0.002) * 20;
     vertex(x, mountainY);
   }
-  vertex(width, height);
-  endShape(CLOSE);
+  vertex(width, height); endShape(CLOSE);
 
-  // ---- 3. 中景層：近山小丘陵（時速 1.0） ----
   if (gameState === 'PLAYING') nearHillX -= 1.0;
-  fill('#A6867A'); // 再更深、更有厚實感的土奶茶色
-  beginShape();
-  vertex(0, height);
+  fill('#A6867A'); beginShape(); vertex(0, height);
   for (let x = 0; x <= width; x += 8) {
     let hillY = horizonY - 70 + sin((x - nearHillX) * 0.01) * 30 + sin((x + nearHillX) * 0.003) * 10;
     vertex(x, hillY);
   }
-  vertex(width, height);
-  endShape(CLOSE);
+  vertex(width, height); endShape(CLOSE);
 }
 
-// 🌟 遠景白雲類別
 class Cloud {
-  constructor(x, y) {
-    this.x = x; this.y = y; this.speed = random(0.1, 0.3); this.scale = random(0.6, 1.2);
-  }
+  constructor(x, y) { this.x = x; this.y = y; this.speed = random(0.1, 0.3); this.scale = random(0.6, 1.2); }
   update() { this.x -= this.speed; }
   display() {
-    noStroke(); fill(255, 255, 255, 120); // 120 半透明柔和白
-    // 用多個圓形交疊出蓬鬆的立體雲朵模樣
-    push();
-    translate(this.x, this.y);
-    scale(this.scale);
-    ellipse(0, 0, 70, 40);
-    ellipse(-25, 5, 45, 30);
-    ellipse(25, 5, 45, 30);
-    ellipse(5, -15, 45, 45);
-    pop();
+    noStroke(); fill(255, 255, 255, 120); push(); translate(this.x, this.y); scale(this.scale);
+    ellipse(0, 0, 70, 40); ellipse(-25, 5, 45, 30); ellipse(25, 5, 45, 30); ellipse(5, -15, 45, 45); pop();
   }
 }
 
 function drawStartMenu() {
   fill(0, 0, 0, 100); noStroke(); rect(0, 0, width, height);
-  fill(255); textAlign(CENTER, CENTER); textSize(50);
-  text("AI 體感跑酷冒險", width / 2, height / 2 - 120);
+  fill(255); textAlign(CENTER, CENTER); textSize(50); text("AI 體感跑酷冒險", width / 2, height / 2 - 120);
   textSize(20); fill('#E0AFA0'); text("動態提示: " + debugMessage, width / 2, height / 2 - 50);
   let btnX = width / 2 - BTN_W / 2; let btnY = height / 2 + 20;
   if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) fill('#E85D04'); else fill('#F48C06'); 
-  rect(btnX, btnY, BTN_W, BTN_H, 15); 
-  fill(255); textSize(24); text("開始遊戲", width / 2, height / 2 + 50);
+  rect(btnX, btnY, BTN_W, BTN_H, 15); fill(255); textSize(24); text("開始遊戲", width / 2, height / 2 + 50);
 }
 
 function drawGameOverMenu() {
@@ -250,15 +213,10 @@ function drawGameOverMenu() {
   fill(255); textSize(32); text("最終得分: " + score, width / 2, height / 2 - 40);
   let btnX = width / 2 - BTN_W / 2; let btnY = height / 2 + 30;
   if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) fill('#3A86C8'); else fill('#4EA8DE'); 
-  rect(btnX, btnY, BTN_W, BTN_H, 15);
-  fill(255); textSize(24); text("再來一次", width / 2, height / 2 + 60);
+  rect(btnX, btnY, BTN_W, BTN_H, 15); fill(255); textSize(24); text("再來一次", width / 2, height / 2 + 60);
 }
 
-function drawUI() {
-  fill(255); noStroke(); textSize(24); textAlign(LEFT, TOP);
-  text("得分: " + score, 30, 30); text("動態偵測: " + debugMessage, 30, 70);
-}
-
+function drawUI() { fill(255); noStroke(); textSize(24); textAlign(LEFT, TOP); text("得分: " + score, 30, 30); text("動態偵測: " + debugMessage, 30, 70); }
 function gotHands(results) { hands = results; }
 function checkButtonAction() {
   let btnX = width / 2 - BTN_W / 2;
@@ -267,61 +225,96 @@ function checkButtonAction() {
     if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) {
       obstacles = []; effects = []; score = 0;
       player = new Player(PLAYER_START_X, height - PLAYER_START_Y_OFFSET);
-      gameState = 'PLAYING'; gameStartTime = millis(); 
-      return true; 
+      gameState = 'PLAYING'; gameStartTime = millis(); return true; 
     }
   }
   return false;
 }
-
 function mousePressed() { checkButtonAction(); }
 function touchStarted() { checkButtonAction(); }
 function windowResized() { resizeCanvas(windowWidth, windowHeight); if (player) player.baseY = height - PLAYER_START_Y_OFFSET; }
 
 // ==========================================
-// 🧱 類別一：遊戲主角 (Player Class)
+// 🧱 類別一：遊戲主角 (Player Class) - 🌟 物理與貼地完美解鎖版
 // ==========================================
 class Player {
   constructor(x, y) {
-    this.x = x; this.y = y; this.baseY = y; this.w = 64; this.h = 56; this.baseH = 56;         
-    this.gravity = 0.5; this.velocity = 0; this.jumpForce = -13.5; this.isSliding = false;  
-    this.jumpCount = 0; this.canDoubleJumpTrigger = true; 
+    this.x = x;               // 🌟 X 軸絕對定死，不參與任何動態物理計算
+    this.y = y;
+    this.baseY = y;          
+    this.w = 64;             
+    this.h = 56;             
+    this.baseH = 56;         
+    
+    // 垂直 Y 軸專屬物理參數
+    this.gravity = 0.52;      
+    this.velocity = 0;       
+    this.jumpForce = -13.8;  // 強大的第一跳垂直爆發力
+    this.isSliding = false;  
+    this.jumpCount = 0;      
+    this.canDoubleJumpTrigger = true; 
 
     this.runAnim = { frame: 0, speed: 0.25, count: 8, w: 32, h: 24 };
     this.jumpAnim = { frame: 0, speed: 0.11, count: 8, w: 37, h: 28 }; 
-    this.slideAnim = { frame: 0, speed: 0.15, count: 2, w: 30, h: 22 };
+    // 滑行動畫規格 (把 frame 鎖在 0，只讀取第一張圖)
+    this.slideAnim = { frame: 0, speed: 0, count: 2, w: 30, h: 22 };
   }
 
   jump() {
     if (this.y === this.baseY && !this.isSliding && this.jumpCount === 0) {
-      this.velocity = this.jumpForce; this.jumpCount = 1; this.canDoubleJumpTrigger = false; 
+      this.velocity = this.jumpForce; 
+      this.jumpCount = 1;
+      this.canDoubleJumpTrigger = false; 
       effects.push(new RingEffect(this.x + this.w / 2, this.baseY + this.h));
     }
   }
 
   doubleJump() {
+    // 🌟 核心解鎖：當在空中且鎖打開時，立刻往 Y 軸注入第二次獨立的垂直向上推力！絕對不再卡住！
     if (this.y < this.baseY && this.jumpCount === 1 && this.canDoubleJumpTrigger) {
-      this.velocity = -11.5; this.jumpCount = 2; 
+      this.velocity = -12.5; // 原地向上再次拔高
+      this.jumpCount = 2; 
       for (let i = 0; i < 15; i++) effects.push(new ParticleEffect(this.x + this.w / 2, this.y + this.h / 2));
     }
     if (this.y === this.baseY && !this.isSliding && this.jumpCount === 0) this.jump(); 
   }
 
   slide(isSlidingNow) {
-    if (isSlidingNow) { this.isSliding = true; this.h = this.baseH * 0.45; this.y = this.baseY; } 
-    else { this.isSliding = false; this.h = this.baseH; this.y = this.baseY; }
+    if (isSlidingNow) {
+      this.isSliding = true;
+      // 🌟 核心配平：滑行時碰撞箱高度縮扁到原本的 40%
+      this.h = this.baseH * 0.40; 
+    } else {
+      this.isSliding = false;
+      this.h = this.baseH;       
+    }
   }
 
   update() {
-    this.velocity += this.gravity; this.y += this.velocity;
-    if (this.y >= this.baseY && !this.isSliding) {
-      this.y = this.baseY; this.velocity = 0; this.jumpCount = 0; this.canDoubleJumpTrigger = true;
-    } else if (this.isSliding) { this.velocity = 0; this.y = this.baseY; }
-    if (this.y < this.baseY && this.velocity > -2) this.canDoubleJumpTrigger = true;
+    // 只有在非滑行狀態下，重力才會拉動 Y 軸
+    if (!this.isSliding) {
+      this.velocity += this.gravity;
+      this.y += this.velocity;
+    }
 
-    if (this.y === this.baseY && !this.isSliding) this.runAnim.frame = (this.runAnim.frame + this.runAnim.speed) % this.runAnim.count;
-    else if (this.y < this.baseY) this.jumpAnim.frame = (this.jumpAnim.frame + this.jumpAnim.speed) % this.jumpAnim.count;
-    else if (this.isSliding) this.slideAnim.frame = (this.slideAnim.frame + this.slideAnim.speed) % this.slideAnim.count;
+    // 落地安全檢查
+    if (this.y >= this.baseY && !this.isSliding) {
+      this.y = this.baseY;
+      this.velocity = 0;
+      this.jumpCount = 0; 
+      this.canDoubleJumpTrigger = true;
+    }
+
+    if (this.y < this.baseY && this.velocity > -2) {
+      this.canDoubleJumpTrigger = true;
+    }
+
+    // 動態影格更新
+    if (this.y === this.baseY && !this.isSliding) {
+      this.runAnim.frame = (this.runAnim.frame + this.runAnim.speed) % this.runAnim.count;
+    } else if (this.y < this.baseY) {
+      this.jumpAnim.frame = (this.jumpAnim.frame + this.jumpAnim.speed) % this.jumpAnim.count;
+    }
   }
 
   display() {
@@ -330,18 +323,31 @@ class Player {
         if (anim === this.runAnim) fill('green'); else if (anim === this.jumpAnim) fill('blue'); else fill('yellow'); 
         noStroke(); rect(this.x, this.y, this.w, this.h); return; 
       }
-      let currentFrameIndex = floor(anim.frame); let sx = currentFrameIndex * anim.w; 
-      let displayHeight = (this.isSliding) ? this.baseH : this.h; let drawY = (this.isSliding) ? this.baseY : this.y;
-      image(sheet, this.x, drawY, this.w, displayHeight, sx, 0, anim.w, anim.h);
+      let currentFrameIndex = floor(anim.frame);
+      let sx = currentFrameIndex * anim.w; 
+
+      image(sheet, this.x, this.y, this.w, this.h, sx, 0, anim.w, anim.h);
     };
-    if (this.isSliding) drawAnimation(this.slideAnim, slideSpriteSheet);
-    else if (this.y < this.baseY) drawAnimation(this.jumpAnim, jumpSpriteSheet); 
-    else drawAnimation(this.runAnim, runSpriteSheet);
+
+    if (this.isSliding) {
+      // 🌟 🌟 核心修正：當舉右手滑行時 🌟 🌟
+      // 1. 強制將 Y 座標修正到地平線上：用 (baseY + baseH - h) 算出完美的底部，再減去縮小的碰撞箱高度
+      // 這樣人物圖片在視覺上和碰撞箱在底層上，都會「100% 穩穩踩在白線地板上」，絕對不會懸空！
+      this.y = this.baseY + (this.baseH - this.h); 
+      
+      // 2. 鎖定在 slideAnim 的 frame 0（第一張寬度較短的 stand.png 圖），不讓它亂跳滾動
+      this.slideAnim.frame = 0; 
+      drawAnimation(this.slideAnim, slideSpriteSheet);
+    } else if (this.y < this.baseY) {
+      drawAnimation(this.jumpAnim, jumpSpriteSheet); 
+    } else {
+      drawAnimation(this.runAnim, runSpriteSheet);
+    }
   }
 }
 
 // ==========================================
-// 🌟 特效類別
+// 🌟 特效與障礙物類別
 // ==========================================
 class RingEffect {
   constructor(x, y) { this.x = x; this.y = y; this.size = 10; this.maxSize = 90; this.alpha = 255; this.speed = 4; }
@@ -360,9 +366,6 @@ class ParticleEffect {
   isDead() { return this.alpha <= 0; }
 }
 
-// ==========================================
-// 🚧 類別二：障礙物 (Obstacle Class)
-// ==========================================
 class Obstacle {
   constructor(type) {
     this.type = type; this.x = width; this.speed = 4.5; this.passed = false;
