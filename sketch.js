@@ -20,9 +20,15 @@ const PLAYER_START_Y_OFFSET = 150; // 玩家初始 Y 座標
 let player;
 let obstacles = [];
 let score = 0;
-let gameOver = false;
 let modelLoaded = false; 
 let nextObstacleFrame = 0;
+
+// 🌟 核心更新：遊戲狀態機設定 ('START' = 開始選單, 'PLAYING' = 遊戲中, 'GAMEOVER' = 結算)
+let gameState = 'START'; 
+
+// 🌟 核心更新：按鈕的尺寸與位置常數
+const BTN_W = 200;
+const BTN_H = 60;
 
 // 影像映射全域座標
 let videoX = 0;
@@ -72,65 +78,68 @@ function draw() {
   strokeWeight(4);
   line(0, height - GROUND_Y_OFFSET, width, height - GROUND_Y_OFFSET); 
 
+  // 更新視訊尺寸位置
   videoWidth = width * 0.4;
   videoHeight = height * 0.4;
   videoX = width * 0.55; 
   videoY = (height - videoHeight) / 2;
 
-  if (modelLoaded) {
-    image(capture, videoX, videoY, videoWidth, videoHeight);
-  }
+  // 🌟 根據不同遊戲狀態渲染畫面
+  if (gameState === 'START') {
+    // ==========================================
+    // 🏠 畫面一：【開始遊戲選單】
+    // ==========================================
+    drawStartMenu();
 
-  let leftHandUp = false;
-  let rightHandUp = false;
+  } else if (gameState === 'PLAYING') {
+    // ==========================================
+    // 🏃 畫面二：【遊戲核心跑酷中】
+    // ==========================================
+    if (modelLoaded) {
+      image(capture, videoX, videoY, videoWidth, videoHeight);
+    }
 
-  for (let i = 0; i < hands.length; i++) {
-    let hand = hands[i];
-    let wrist = hand.keypoints[0]; 
-    
-    let mappedY = map(wrist.y, 0, capture.height, videoY, videoY + videoHeight);
-    let mappedX = map(wrist.x, 0, capture.width, videoX, videoX + videoWidth);
+    let leftHandUp = false;
+    let rightHandUp = false;
 
-    fill(0, 255, 0);
-    ellipse(mappedX, mappedY, 15, 15);
+    for (let i = 0; i < hands.length; i++) {
+      let hand = hands[i];
+      let wrist = hand.keypoints[0]; 
+      
+      let mappedY = map(wrist.y, 0, capture.height, videoY, videoY + videoHeight);
+      let mappedX = map(wrist.x, 0, capture.width, videoX, videoX + videoWidth);
 
-    if (wrist.y < capture.height * HAND_RAISE_THRESHOLD) { 
-      if (hand.handedness === 'Left') {
-        leftHandUp = true;
-      } else if (hand.handedness === 'Right') {
-        rightHandUp = true;
+      fill(0, 255, 0);
+      ellipse(mappedX, mappedY, 15, 15);
+
+      if (wrist.y < capture.height * HAND_RAISE_THRESHOLD) { 
+        if (hand.handedness === 'Left') leftHandUp = true;
+        else if (hand.handedness === 'Right') rightHandUp = true;
       }
     }
-  }
 
-  if (modelLoaded && !gameOver) {
+    // 狀態鎖定控制流
     if (leftHandUp && rightHandUp) { 
-      debugMessage = "雙手舉起：二連跳！";
+      debugMessage = "雙手舉起：發動二連跳！";
+      player.slide(false);
       player.doubleJump();
-      player.slide(false);
     } else if (leftHandUp) {
-      debugMessage = "舉左手：高高跳躍！";
+      debugMessage = "舉左手：發動爆發跳躍！";
+      player.slide(false);
       player.jump();
-      player.slide(false);
     } else if (rightHandUp) {
-      debugMessage = "舉右手：平地縮體滑行！";
-      player.slide(true);
+      debugMessage = "舉右手：進入鎖定滑行！";
+      player.slide(true);  
     } else {
-      if (hands.length > 0) debugMessage = "雙手放低：原地奔跑中";
-      player.slide(false);
+      if (hands.length > 0) debugMessage = "雙手放低：正常奔跑中";
+      player.slide(false); 
     }
 
     player.update();
 
-    // 障礙物管理系統（綠 7 : 紅 3）
+    // 障礙物系統（綠 7 : 紅 3）
     if (frameCount > nextObstacleFrame) {
-      let type;
-      let rand = random(0, 100);
-      if (rand < 70) {
-        type = 'low';   
-      } else {
-        type = 'high';  
-      }
+      let type = (random(0, 100) < 70) ? 'low' : 'high';   
       obstacles.push(new Obstacle(type));
       nextObstacleFrame = frameCount + random(OBSTACLE_MIN_INTERVAL, OBSTACLE_MAX_INTERVAL); 
     }
@@ -140,7 +149,7 @@ function draw() {
       obstacles[i].display(); 
 
       if (obstacles[i].hits(player)) {
-        gameOver = true;
+        gameState = 'GAMEOVER'; // 🌟 撞到障礙物切換到結算畫面
       }
 
       if (obstacles[i].x + obstacles[i].w < player.x && !obstacles[i].passed) {
@@ -148,46 +157,132 @@ function draw() {
         obstacles[i].passed = true;
       }
 
-      if (obstacles[i].x < -50) {
-        obstacles.splice(i, 1);
-      }
+      if (obstacles[i].x < -50) obstacles.splice(i, 1);
     }
 
     player.display();
+    drawUI();
 
-  } else if (gameOver) { 
-    fill(0, 0, 0, 150); 
-    rect(0, 0, width, height);
-
-    fill(255, 0, 0);
-    textSize(64);
-    textAlign(CENTER, CENTER);
-    text("GAME OVER", width / 2, height / 2);
-    textSize(24);
-    fill(255);
-    text("點擊滑鼠重新開始遊戲", width / 2, height / 2 + 80);
+  } else if (gameState === 'GAMEOVER') {
+    // ==========================================
+    // 💀 畫面三：【遊戲結束結算畫面】
+    // ==========================================
+    drawGameOverMenu();
   }
+}
 
+// 繪製開始選單的輔助函式
+function drawStartMenu() {
+  // 半透明美化背景遮罩
+  fill(0, 0, 0, 100);
+  noStroke();
+  rect(0, 0, width, height);
+
+  // 標題
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(50);
+  text("AI 體感跑酷冒險", width / 2, height / 2 - 120);
+  
+  textSize(20);
+  fill('#E0AFA0');
+  text("動態提示: " + debugMessage, width / 2, height / 2 - 50);
+
+  // 繪製「開始遊戲」互動按鈕
+  let btnX = width / 2 - BTN_W / 2;
+  let btnY = height / 2 + 20;
+
+  // 滑鼠或手指懸停變色特效
+  if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) {
+    fill('#E85D04'); // 亮橘色
+  } else {
+    fill('#F48C06'); // 橘黃色
+  }
+  rect(btnX, btnY, BTN_W, BTN_H, 15); // 圓角按鈕
+
+  // 按鈕文字
+  fill(255);
+  textSize(24);
+  text("開始遊戲", width / 2, height / 2 + 50);
+
+  // 玩法提示
+  textSize(16);
+  fill(255, 200);
+  text("【玩法說明】舉左手 = 跳躍 (置空1.2秒) | 舉右手 = 平地縮身滑行避開紅色方塊", width / 2, height / 2 + 150);
+}
+
+// 繪製遊戲結束選單的輔助函式
+function drawGameOverMenu() {
+  fill(0, 0, 0, 160); 
+  noStroke();
+  rect(0, 0, width, height);
+
+  // Game Over 字樣
+  fill('#D00000');
+  textAlign(CENTER, CENTER);
+  textSize(70);
+  text("GAME OVER", width / 2, height / 2 - 120);
+
+  // 分數結算
+  fill(255);
+  textSize(32);
+  text("最終得分: " + score, width / 2, height / 2 - 40);
+
+  // 繪製「再來一次」互動按鈕
+  let btnX = width / 2 - BTN_W / 2;
+  let btnY = height / 2 + 30;
+
+  if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) {
+    fill('#3A86C8'); // 懸停藍色
+  } else {
+    fill('#4EA8DE'); // 預設天空藍
+  }
+  rect(btnX, btnY, BTN_W, BTN_H, 15);
+
+  // 按鈕文字
+  fill(255);
+  textSize(24);
+  text("再來一次", width / 2, height / 2 + 60);
+}
+
+// 原本的頂部得分 UI 繪製
+function drawUI() {
   fill(255);
   noStroke();
   textSize(24);
   textAlign(LEFT, TOP);
   text("得分: " + score, 30, 30);
   text("動態偵測: " + debugMessage, 30, 70);
-  textSize(14);
-  text("【玩法提示】舉左手 = 大幅度騰空 2 秒跳躍 | 舉右手 = 平地縮身滑行避開紅色方塊", 30, 110);
 }
 
 function gotHands(results) {
   hands = results;
 }
 
+// 🌟 核心更新：同時完美相容電腦滑鼠點擊與手機觸控點擊
 function mousePressed() {
-  if (gameOver) {
-    obstacles = [];
-    score = 0;
-    gameOver = false;
-    player = new Player(PLAYER_START_X, height - PLAYER_START_Y_OFFSET);
+  let btnX = width / 2 - BTN_W / 2;
+
+  if (gameState === 'START') {
+    let btnY = height / 2 + 20;
+    // 檢查點擊是否在「開始遊戲」按鈕範圍內
+    if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) {
+      // 重置遊戲資料並進入遊戲
+      obstacles = [];
+      score = 0;
+      player = new Player(PLAYER_START_X, height - PLAYER_START_Y_OFFSET);
+      gameState = 'PLAYING';
+    }
+  } else if (gameState === 'GAMEOVER') {
+    let btnY = height / 2 + 30;
+    // 檢查點擊是否在「再來一次」按鈕範圍內
+    if (mouseX > btnX && mouseX < btnX + BTN_W && mouseY > btnY && mouseY < btnY + BTN_H) {
+      // 重置遊戲資料並重新跑酷
+      obstacles = [];
+      score = 0;
+      player = new Player(PLAYER_START_X, height - PLAYER_START_Y_OFFSET);
+      gameState = 'PLAYING';
+    }
   }
 }
 
@@ -213,15 +308,15 @@ class Player {
     this.h = 56;             
     this.baseH = 56;         
     
-    this.gravity = 0.16;     
+    this.gravity = 0.5;      
     this.velocity = 0;       
-    this.jumpForce = -9.6;   
+    this.jumpForce = -11.5;  
     this.isSliding = false;  
     this.jumpCount = 0;      
 
     // 精靈圖切圖規格
     this.runAnim = { frame: 0, speed: 0.25, count: 8, w: 32, h: 24 };
-    this.jumpAnim = { frame: 0, speed: 0.065, count: 8, w: 37, h: 28 }; 
+    this.jumpAnim = { frame: 0, speed: 0.11, count: 8, w: 37, h: 28 }; 
     this.slideAnim = { frame: 0, speed: 0.15, count: 2, w: 30, h: 22 };
   }
 
@@ -238,12 +333,11 @@ class Player {
   }
 
   slide(isSlidingNow) {
-    if (isSlidingNow && this.y === this.baseY) {
+    if (isSlidingNow) {
       this.isSliding = true;
-      // 🌟 核心配平：滑行時碰撞箱精確壓低到原本的 45%，騰出上方空間供紅色方塊穿過
       this.h = this.baseH * 0.45; 
-      this.y = this.baseY; 
-    } else if (!isSlidingNow) {
+      this.y = this.baseY;        
+    } else {
       this.isSliding = false;
       this.h = this.baseH;       
       this.y = this.baseY;
@@ -259,6 +353,7 @@ class Player {
       this.velocity = 0;
     } else if (this.isSliding) {
       this.velocity = 0; 
+      this.y = this.baseY; 
     }
 
     if (this.y === this.baseY && !this.isSliding) {
@@ -317,12 +412,10 @@ class Obstacle {
     if (this.type === 'low') {
       this.w = 30;
       this.h = 45;      
-      this.y = height - GROUND_Y_OFFSET - this.h; // 地面障礙物
+      this.y = height - GROUND_Y_OFFSET - this.h; 
     } else if (this.type === 'high') {
       this.w = 40;
-      this.h = 25;      // 🌟 核心修正：將懸空紅色方塊高度縮扁變精緻
-      // 🌟 核心修正：高度從原本的「底部往上減95」改為「減 52」。
-      // 這會讓紅色方塊的高度精準卡在正常角色的「脖子與頭部」高度！如果不蹲下絕對會直接被敲頭！
+      this.h = 25;      
       this.y = height - GROUND_Y_OFFSET - 52; 
     }
   }
@@ -335,7 +428,7 @@ class Obstacle {
     if (this.type === 'low') {
       fill('#38B000'); 
     } else {
-      fill('#D00000'); // 懸空紅色方塊
+      fill('#D00000'); 
     }
     rect(this.x, this.y, this.w, this.h, 5);
   }
