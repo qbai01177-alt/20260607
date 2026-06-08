@@ -15,7 +15,7 @@ let farMountainX = 0;
 let nearHillX = 0;    
 
 // --- 🎮 針對體感延遲優化後的遊戲設定常數 ---
-const HAND_RAISE_THRESHOLD = 0.45; // 舉手高度閾值
+const HAND_RAISE_THRESHOLD = 0.45; 
 const OBSTACLE_MIN_INTERVAL = 140; 
 const OBSTACLE_MAX_INTERVAL = 220; 
 const GROUND_Y_OFFSET = 100;       
@@ -91,48 +91,45 @@ function draw() {
     if (modelLoaded) {
       image(capture, videoX, videoY, videoWidth, videoHeight);
       
-      // 🌟 在視訊畫面中央畫一條淡淡的輔助紅線，方便你和老師看清「左跳、右蹲」的區域分界
+      // 視訊畫面中央輔助紅線
       stroke(255, 0, 0, 100);
       strokeWeight(2);
       line(videoX + videoWidth / 2, videoY, videoX + videoWidth / 2, videoY + videoHeight);
     }
 
-    // 🌟 核心重構：改用「畫面左半邊舉手」與「畫面右半邊舉手」來絕對判定
-    let leftZoneHandUp = false;  // 畫面左半邊有手舉高
-    let rightZoneHandUp = false; // 畫面右半邊有手舉高
+    // 區域手勢統計
+    let leftZoneHandUp = false;  
+    let rightZoneHandUp = false; 
 
     for (let i = 0; i < hands.length; i++) {
       let hand = hands[i];
-      let wrist = hand.keypoints[0]; // 抓手腕點
+      let wrist = hand.keypoints[0]; 
       
       let mappedY = map(wrist.y, 0, capture.height, videoY, videoY + videoHeight);
       let mappedX = map(wrist.x, 0, capture.width, videoX, videoX + videoWidth);
 
-      // 畫出偵測點
       fill(0, 255, 0);
       noStroke();
       ellipse(mappedX, mappedY, 15, 15);
 
-      // 1. 先判定這隻手有沒有「舉得夠高」
       if (wrist.y < capture.height * HAND_RAISE_THRESHOLD) { 
-        // 2. 再看這隻手是在視訊畫面的「左半邊」還是「右半邊」
         if (wrist.x < capture.width / 2) {
-          leftZoneHandUp = true; // 畫面左側舉手
+          leftZoneHandUp = true; 
         } else {
-          rightZoneHandUp = true; // 畫面右側舉手
+          rightZoneHandUp = true; 
         }
       }
     }
 
-    // --- 🌟 萬無一失的區域指令流分流 ---
+    // 萬無一失的區域指令流
     if (leftZoneHandUp && rightZoneHandUp) { 
-      debugMessage = "兩邊都舉手：發動原地垂直二連跳！";
+      debugMessage = "雙手高舉：原地垂直二連跳（超高騰空）！";
       player.slide(false); player.doubleJump(); 
     } else if (leftZoneHandUp) {
-      debugMessage = "畫面左側舉手：原地垂直起跳一個身位！";
+      debugMessage = "左邊舉手：原地垂直起跳兩個身位！";
       player.slide(false); player.jump();
     } else if (rightZoneHandUp) {
-      debugMessage = "畫面右側舉手：鎖定貼地縮體滑行！";
+      debugMessage = "右邊舉手：鎖定貼地縮體滑行！";
       player.slide(true);
     } else {
       if (hands.length > 0) debugMessage = "手放低：正常奔跑中";
@@ -253,13 +250,24 @@ function touchStarted() { checkButtonAction(); }
 function windowResized() { resizeCanvas(windowWidth, windowHeight); if (player) player.baseY = height - PLAYER_START_Y_OFFSET; }
 
 // ==========================================
-// 🧱 類別一：遊戲主角 (Player Class)
+// 🧱 類別一：遊戲主角 (Player Class) - 🌟 垂直高空飄逸版
 // ==========================================
 class Player {
   constructor(x, y) {
-    this.x = x; this.y = y; this.baseY = y; this.w = 64; this.h = 56; this.baseH = 56;         
-    this.gravity = 0.52; this.velocity = 0; this.jumpForce = -13.8; this.isSliding = false;  
-    this.jumpCount = 0; this.canDoubleJumpTrigger = true; 
+    this.x = x; 
+    this.y = y;
+    this.baseY = y;          
+    this.w = 64;             
+    this.h = 56;             
+    this.baseH = 56;         
+    
+    // 🌟 核心重配：大幅減輕重力，拉高推力，達成原地垂直飛躍 1-2 個身位！
+    this.gravity = 0.18;     // 重力大幅降至 0.18，角色在半空中會非常輕盈
+    this.velocity = 0;       
+    this.jumpForce = -7.5;   // 配合低重力，這股垂直向上的初速度能保證原地蹦起 1-2 個身位
+    this.isSliding = false;  
+    this.jumpCount = 0;      
+    this.canDoubleJumpTrigger = true; 
 
     this.runAnim = { frame: 0, speed: 0.25, count: 8, w: 32, h: 24 };
     this.jumpAnim = { frame: 0, speed: 0.11, count: 8, w: 37, h: 28 }; 
@@ -268,14 +276,18 @@ class Player {
 
   jump() {
     if (this.y === this.baseY && !this.isSliding && this.jumpCount === 0) {
-      this.velocity = this.jumpForce; this.jumpCount = 1; this.canDoubleJumpTrigger = false; 
+      this.velocity = this.jumpForce; 
+      this.jumpCount = 1;
+      this.canDoubleJumpTrigger = false; 
       effects.push(new RingEffect(this.x + this.w / 2, this.baseY + this.h));
     }
   }
 
   doubleJump() {
+    // 🌟 二連跳再度垂直噴射，直接衝上原本兩倍的高空！
     if (this.y < this.baseY && this.jumpCount === 1 && this.canDoubleJumpTrigger) {
-      this.velocity = -12.5; this.jumpCount = 2; 
+      this.velocity = -6.5; // 在空中額外疊加獨立的垂直推力
+      this.jumpCount = 2; 
       for (let i = 0; i < 15; i++) effects.push(new ParticleEffect(this.x + this.w / 2, this.y + this.h / 2));
     }
     if (this.y === this.baseY && !this.isSliding && this.jumpCount === 0) this.jump(); 
@@ -287,9 +299,23 @@ class Player {
   }
 
   update() {
-    if (!this.isSliding) { this.velocity += this.gravity; this.y += this.velocity; }
-    if (this.y >= this.baseY && !this.isSliding) { this.y = this.baseY; this.velocity = 0; this.jumpCount = 0; this.canDoubleJumpTrigger = true; }
-    if (this.y < this.baseY && this.velocity > -2) this.canDoubleJumpTrigger = true;
+    if (!this.isSliding) { 
+      this.velocity += this.gravity; 
+      this.y += this.velocity; 
+    }
+    
+    // 落地檢查
+    if (this.y >= this.baseY && !this.isSliding) {
+      this.y = this.baseY; 
+      this.velocity = 0; 
+      this.jumpCount = 0; 
+      this.canDoubleJumpTrigger = true; 
+    }
+
+    // 當快要升到單跳頂端（速度緩慢下來時），立刻解放二連跳觸發鎖
+    if (this.y < this.baseY && this.velocity > -2.5) {
+      this.canDoubleJumpTrigger = true;
+    }
 
     if (this.y === this.baseY && !this.isSliding) this.runAnim.frame = (this.runAnim.frame + this.runAnim.speed) % this.runAnim.count;
     else if (this.y < this.baseY) this.jumpAnim.frame = (this.jumpAnim.frame + this.jumpAnim.speed) % this.jumpAnim.count;
@@ -306,7 +332,7 @@ class Player {
     };
 
     if (this.isSliding) {
-      this.y = this.baseY + (this.baseH - this.h); 
+      this.y = this.baseY + (this.baseH - this.h); // 完美貼地
       this.slideAnim.frame = 0; 
       drawAnimation(this.slideAnim, slideSpriteSheet);
     } else if (this.y < this.baseY) {
@@ -318,7 +344,7 @@ class Player {
 }
 
 // ==========================================
-// 🌟 特效與障礙物類別 (保持單行優化)
+// 🌟 特效與障礙物類別
 // ==========================================
 class RingEffect {
   constructor(x, y) { this.x = x; this.y = y; this.size = 10; this.maxSize = 90; this.alpha = 255; this.speed = 4; }
