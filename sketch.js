@@ -75,6 +75,11 @@ function setup() {
 function draw() {
   background('#C9ADA1'); // 溫暖的背景底色
 
+  // 將地板線移到前面繪製，這樣角色和障礙物才能顯示在線的上方
+  stroke(255);
+  strokeWeight(4);
+  line(0, height - GROUND_Y_OFFSET, width, height - GROUND_Y_OFFSET); // 地板線
+
   // --- 1. 繪製攝影機畫面 (佔畫面的右半邊置中) ---
   // 只有在模型載入後才顯示攝影機，避免畫面閃爍
   if (modelLoaded) {
@@ -119,7 +124,9 @@ function draw() {
 
   // --- 3. 根據雙手狀態觸發遊戲動作 ---
   // 只有在模型載入完成且遊戲未結束時才執行遊戲邏輯
-  if (modelLoaded && !gameOver) {
+  // 🌟 暫時修改以進行除錯：我們先繞過 AI 模型載入檢查，強制遊戲運行
+  // 這樣可以驗證角色繪製本身是否正常。
+  if (!gameOver) {
     if (leftHandUp && rightHandUp) { 
       debugMessage = "雙手舉起：二連跳！";
       player.doubleJump();
@@ -136,9 +143,8 @@ function draw() {
       player.slide(false);
     }
 
-    // 更新與繪製主角
+    // 先更新主角的狀態（位置、動畫幀等）
     player.update();
-    player.display();
 
     // --- 4. 障礙物管理系統 ---
     if (frameCount > nextObstacleFrame) {
@@ -149,7 +155,7 @@ function draw() {
 
     for (let i = obstacles.length - 1; i >= 0; i--) {
       obstacles[i].update();
-      obstacles[i].display();
+      obstacles[i].display(); // 先繪製障礙物
 
       // 檢查碰撞
       if (obstacles[i].hits(player)) {
@@ -167,7 +173,15 @@ function draw() {
         obstacles.splice(i, 1);
       }
     }
+
+    // 最後繪製主角，確保它顯示在所有障礙物的最上層
+    player.display();
   } else if (gameOver) { // 只有在遊戲結束時才顯示 Game Over
+    // 加上半透明黑色遮罩，讓 GAME OVER 文字更清楚
+    fill(0, 0, 0, 150); // 半透明黑色
+    noStroke();
+    rect(0, 0, width, height);
+
     // Game Over 畫面
     fill(255, 0, 0);
     textSize(64);
@@ -179,10 +193,6 @@ function draw() {
   }
 
   // --- 5. UI 資訊繪製 ---
-  stroke(255);
-  strokeWeight(4);
-  line(0, height - GROUND_Y_OFFSET, width, height - GROUND_Y_OFFSET); // 地板線
-
   fill(255);
   noStroke();
   textSize(24);
@@ -241,12 +251,13 @@ class Player {
     this.canDoubleJumpTrigger = true; 
 
     // --- 動畫相關屬性 ---
-    // 跑步動畫
-    this.runAnim = { frame: 0, speed: 0.25, count: 8, w: 259 / 8, h: 24 };
-    // 跳躍動畫
-    this.jumpAnim = { frame: 0, speed: 0.2, count: 8, w: 299 / 8, h: 28 };
-    // 滑行動畫
-    this.slideAnim = { frame: 0, speed: 0.15, count: 2, w: 61 / 2, h: 22 };
+    // 修正：使用整數寬度進行裁切，避免小數錯誤
+    // 跑步動畫 (259 / 8 ≈ 32)
+    this.runAnim = { frame: 0, speed: 0.25, count: 8, w: 32, h: 24 };
+    // 跳躍動畫 (299 / 8 ≈ 37)
+    this.jumpAnim = { frame: 0, speed: 0.2, count: 8, w: 37, h: 28 };
+    // 滑行動畫 (61 / 2 ≈ 30)
+    this.slideAnim = { frame: 0, speed: 0.15, count: 2, w: 30, h: 22 };
   }
 
   jump() {
@@ -315,34 +326,12 @@ class Player {
   }
 
   display() {
-    // 🌟 新增：繪製一個半透明的除錯方塊在角色後面
-    // 這能幫助我們確認角色的位置和碰撞箱大小是否正確
-    fill(255, 0, 255, 100); // 半透明的洋紅色
+    // 終極除錯：我們先忽略所有圖片和動畫，只畫一個明亮的方塊
+    // 如果這個方塊能正常出現並進行遊戲，就代表 player 的位置、大小、碰撞邏輯都沒問題。
+    // 問題就 100% 出在圖片載入或繪製的環節。
+    fill(255, 0, 255); // 明亮的洋紅色
     noStroke();
     rect(this.x, this.y, this.w, this.h);
-
-    // 繪製動畫的輔助函式
-    const drawAnimation = (anim, sheet) => {
-      let currentFrameIndex = floor(anim.frame);
-      let sx = currentFrameIndex * anim.w; // 計算在 spritesheet 上的 X 座標
-      image(
-        sheet,
-        this.x, this.y, this.w, this.h, // 繪製在畫布上的位置與大小
-        sx, 0, anim.w, anim.h           // 從 spritesheet 裁切的區域
-      );
-    };
-
-    if (this.isSliding) {
-      // 狀態: 滑行 -> 繪製滑行動畫
-      drawAnimation(this.slideAnim, slideSpriteSheet);
-    } else if (this.y < this.baseY || this.jumpCount > 0) {
-      // 狀態: 在空中 -> 繪製跳躍動畫
-      // (包含單跳和二連跳)
-      drawAnimation(this.jumpAnim, jumpSpriteSheet);
-    } else {
-      // 預設狀態: 跑步 -> 繪製跑步動畫
-      drawAnimation(this.runAnim, runSpriteSheet);
-    }
   }
 }
 
