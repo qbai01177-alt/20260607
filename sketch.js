@@ -126,7 +126,7 @@ function draw() {
       debugMessage = "雙手高舉：發動原地垂直二連跳（最高高度）！";
       player.slide(false); player.doubleJump(); 
     } else if (leftZoneHandUp) {
-      debugMessage = "左邊舉手：原地垂直單跳（高度調矮，完美比例）！";
+      debugMessage = "左邊舉手：原地垂直單跳（完美壓在畫面內）！";
       player.slide(false); player.jump();
     } else if (rightZoneHandUp) {
       debugMessage = "右邊舉手：鎖定貼地縮體滑行！";
@@ -252,7 +252,7 @@ function touchStarted() { checkButtonAction(); }
 function windowResized() { resizeCanvas(windowWidth, windowHeight); if (player) player.baseY = height - PLAYER_START_Y_OFFSET; }
 
 // ==========================================
-// 🧱 類別一：遊戲主角 (Player Class) - 🌟 高度階層完美配平版
+// 🧱 類別一：遊戲主角 (Player Class) - 🌟 安全天際線版
 // ==========================================
 class Player {
   constructor(x, y) {
@@ -260,7 +260,7 @@ class Player {
     
     this.gravity = 0.22;     
     this.velocity = 0;       
-    this.jumpForce = -7.8;   // 🌟 完美下修：從 -9.3 精準調整到 -7.8！單手垂直高度呈現舒適的 2 倍高
+    this.jumpForce = -6.3;   // 🌟 完美壓低：從 -7.8 下調到 -6.3！保證單手跳不飛出畫面頂端
     this.isSliding = false;  
     this.jumpCount = 0;      
     this.canDoubleJumpTrigger = true; 
@@ -281,7 +281,7 @@ class Player {
 
   doubleJump() {
     if (this.y < this.baseY && this.jumpCount === 1 && this.canDoubleJumpTrigger) {
-      this.velocity = -6.5; // 🌟 保持二連跳高空推力，讓單雙手高度差距分明、不打架
+      this.velocity = -5.0; // 🌟 同步調校二連跳力道，讓它既有超高爆發力，又剛好碰不到最天頂
       this.jumpCount = 2; 
       for (let i = 0; i < 15; i++) effects.push(new ParticleEffect(this.x + this.w / 2, this.y + this.h / 2));
     }
@@ -295,10 +295,11 @@ class Player {
 
   update() {
     if (!this.isSliding) { this.velocity += this.gravity; this.y += this.velocity; }
-    if (this.y >= this.baseY && !this.isSliding) { this.y = this.baseY; this.velocity = 0; this.jumpCount = 0; this.canDoubleJumpTrigger = true; }
+    if (this.y >= this.baseY && !this.isSliding) {
+      this.y = this.baseY; this.velocity = 0; this.jumpCount = 0; this.canDoubleJumpTrigger = true; 
+    }
     
-    // 當快要升到單跳頂端時，立刻解放二連跳
-    if (this.y < this.baseY && this.velocity > -2.5) {
+    if (this.y < this.baseY && this.velocity > -2.0) {
       this.canDoubleJumpTrigger = true;
     }
 
@@ -321,7 +322,9 @@ class Player {
       this.slideAnim.frame = 0; 
       drawAnimation(this.slideAnim, slideSpriteSheet);
     } else if (this.y < this.baseY) {
-      drawAnimation(this.jumpAnim, jumpSpriteSheet); 
+      // 🌟 安全機制：如果因為物理極端狀況快要超出頂部（y < 10），強制把視覺位置鎖在畫面上緣
+      let safeY = Math.max(10, this.y);
+      image(jumpSpriteSheet, this.x, safeY, this.w, this.h, floor(this.jumpAnim.frame) * 37, 0, 37, 28);
     } else {
       drawAnimation(this.runAnim, runSpriteSheet);
     }
