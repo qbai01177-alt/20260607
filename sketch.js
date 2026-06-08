@@ -123,10 +123,10 @@ function draw() {
 
     // 狀態指令流
     if (leftZoneHandUp && rightZoneHandUp) { 
-      debugMessage = "雙手高舉：發動原地垂直二連跳（最高高度）！";
+      debugMessage = "雙手高舉：發動原地垂直二連跳（最高天際線）！";
       player.slide(false); player.doubleJump(); 
     } else if (leftZoneHandUp) {
-      debugMessage = "左邊舉手：原地垂直單跳（高度調高 1.5 倍）！";
+      debugMessage = "左邊舉手：原地垂直單跳（高度翻倍調高 x2）！";
       player.slide(false); player.jump();
     } else if (rightZoneHandUp) {
       debugMessage = "右邊舉手：鎖定貼地縮體滑行！";
@@ -252,16 +252,15 @@ function touchStarted() { checkButtonAction(); }
 function windowResized() { resizeCanvas(windowWidth, windowHeight); if (player) player.baseY = height - PLAYER_START_Y_OFFSET; }
 
 // ==========================================
-// 🧱 類別一：遊戲主角 (Player Class) - 🌟 單手跳躍完美配平版
+// 🧱 類別一：遊戲主角 (Player Class) - 🌟 左手大高度飛躍版
 // ==========================================
 class Player {
   constructor(x, y) {
     this.x = x; this.y = y; this.baseY = y; this.w = 64; this.h = 56; this.baseH = 56;         
     
-    // 🌟 最終修正：完美微調物理數值，讓左手單跳高度精準增加 1.5 倍
     this.gravity = 0.22;     
     this.velocity = 0;       
-    this.jumpForce = -6.6;   // 🌟 從 -5.2 提升到 -6.6！讓原地單跳高度完美翻高 1.5 倍
+    this.jumpForce = -8.2;   // 🌟 核心配平：從 -6.6 大幅調升至 -8.2！單手原地跳躍高度完美翻倍
     this.isSliding = false;  
     this.jumpCount = 0;      
     this.canDoubleJumpTrigger = true; 
@@ -298,7 +297,8 @@ class Player {
     if (!this.isSliding) { this.velocity += this.gravity; this.y += this.velocity; }
     if (this.y >= this.baseY && !this.isSliding) { this.y = this.baseY; this.velocity = 0; this.jumpCount = 0; this.canDoubleJumpTrigger = true; }
     
-    if (this.y < this.baseY && this.velocity > -2.0) {
+    // 當快要升到單跳頂端（速度緩慢下來時），立刻解放二連跳
+    if (this.y < this.baseY && this.velocity > -2.5) {
       this.canDoubleJumpTrigger = true;
     }
 
