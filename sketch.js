@@ -35,7 +35,6 @@ let debugMessage = "正在載入資源...";
 
 function preload() {
   console.log("Preload: 正在載入圖片...");
-  // 對準你的資料夾 1
   const runPath = '1/dash.png';
   const jumpPath = '1/jump.png';
   const slidePath = '1/stand.png';
@@ -45,7 +44,6 @@ function preload() {
   slideSpriteSheet = loadImage(slidePath, () => console.log(`✅ ${slidePath} 載入成功`));
 }
 
-// 當 handPose 模型成功載入後執行
 function modelReady() {
   console.log("HandPose Model Ready!");
   modelLoaded = true; 
@@ -56,7 +54,6 @@ function modelReady() {
 function setup() {
   createCanvas(windowWidth, windowHeight);
 
-  // 啟動攝影機並設定鏡像
   capture = createCapture(VIDEO, { flipped: true });
   capture.size(640, 480);
   capture.hide();
@@ -64,30 +61,26 @@ function setup() {
   debugMessage = "正在載入 AI 模型，請稍候...";
   handPose = ml5.handPose({ flipped: true }, modelReady);
 
-  // 初始化遊戲主角
   player = new Player(PLAYER_START_X, height - PLAYER_START_Y_OFFSET);
 }
 
 function draw() {
-  background('#C9ADA1'); // 溫暖的背景底色
+  background('#C9ADA1'); 
 
   // 繪製地板線
   stroke(255);
   strokeWeight(4);
   line(0, height - GROUND_Y_OFFSET, width, height - GROUND_Y_OFFSET); 
 
-  // 更新視訊尺寸位置
   videoWidth = width * 0.4;
   videoHeight = height * 0.4;
   videoX = width * 0.55; 
   videoY = (height - videoHeight) / 2;
 
-  // --- 1. 繪製攝影機畫面 ---
   if (modelLoaded) {
     image(capture, videoX, videoY, videoWidth, videoHeight);
   }
 
-  // --- 2. 核心邏輯：偵測雙手舉起高度 ---
   let leftHandUp = false;
   let rightHandUp = false;
 
@@ -110,14 +103,13 @@ function draw() {
     }
   }
 
-  // --- 3. 根據雙手狀態觸差遊戲動作 ---
   if (modelLoaded && !gameOver) {
     if (leftHandUp && rightHandUp) { 
       debugMessage = "雙手舉起：二連跳！";
       player.doubleJump();
       player.slide(false);
     } else if (leftHandUp) {
-      debugMessage = "舉左手：跳躍！";
+      debugMessage = "舉左手：高高跳躍！";
       player.jump();
       player.slide(false);
     } else if (rightHandUp) {
@@ -130,16 +122,15 @@ function draw() {
 
     player.update();
 
-    // --- 4. 障礙物管理系統（綠 7 : 紅 3） ---
+    // 障礙物管理系統（綠 7 : 紅 3）
     if (frameCount > nextObstacleFrame) {
       let type;
       let rand = random(0, 100);
       if (rand < 70) {
-        type = 'low';   // 70% 機率出現綠色地面障礙物
+        type = 'low';   
       } else {
-        type = 'high';  // 30% 機率出現紅色懸空障礙物
+        type = 'high';  
       }
-      
       obstacles.push(new Obstacle(type));
       nextObstacleFrame = frameCount + random(OBSTACLE_MIN_INTERVAL, OBSTACLE_MAX_INTERVAL); 
     }
@@ -162,7 +153,6 @@ function draw() {
       }
     }
 
-    // 繪製主角精靈
     player.display();
 
   } else if (gameOver) { 
@@ -178,7 +168,6 @@ function draw() {
     text("點擊滑鼠重新開始遊戲", width / 2, height / 2 + 80);
   }
 
-  // --- 5. UI 資訊繪製 ---
   fill(255);
   noStroke();
   textSize(24);
@@ -186,7 +175,7 @@ function draw() {
   text("得分: " + score, 30, 30);
   text("動態偵測: " + debugMessage, 30, 70);
   textSize(14);
-  text("【玩法提示】舉左手 = 太空慢動作 2 秒跳躍 | 舉右手 = 平地縮身滑行 | 雙手舉起 = 二連跳", 30, 110);
+  text("【玩法提示】舉左手 = 大幅度騰空 2 秒跳躍 | 舉右手 = 平地縮身滑行避開紅色方塊", 30, 110);
 }
 
 function gotHands(results) {
@@ -224,16 +213,14 @@ class Player {
     this.h = 56;             
     this.baseH = 56;         
     
-    // 🌟 核心重調：完美調校成「在空中滯留整整 2 秒鐘」的物理公式
-    this.gravity = 0.09;     // 極低的微重力加速度，讓下落極度緩慢
+    this.gravity = 0.16;     
     this.velocity = 0;       
-    this.jumpForce = -5.4;   // 起跳速度配合微重力，維持正常跳躍高度，但延長空中的時間
+    this.jumpForce = -9.6;   
     this.isSliding = false;  
     this.jumpCount = 0;      
 
-    // 精靈圖切圖規格屬性
+    // 精靈圖切圖規格
     this.runAnim = { frame: 0, speed: 0.25, count: 8, w: 32, h: 24 };
-    // 🌟 核心調整：放慢跳躍動畫的切換速度（0.13 -> 0.065），讓它在 2 秒內剛好把翻滾動作做完一遍，不再瘋狂抽搐！
     this.jumpAnim = { frame: 0, speed: 0.065, count: 8, w: 37, h: 28 }; 
     this.slideAnim = { frame: 0, speed: 0.15, count: 2, w: 30, h: 22 };
   }
@@ -245,15 +232,16 @@ class Player {
   }
 
   doubleJump() {
-    if (this.y < this.baseY && this.velocity > -1.5) {
-      this.velocity = this.jumpForce * 0.75;
+    if (this.y < this.baseY && this.velocity > -2) {
+      this.velocity = this.jumpForce * 0.8;
     }
   }
 
   slide(isSlidingNow) {
     if (isSlidingNow && this.y === this.baseY) {
       this.isSliding = true;
-      this.h = this.baseH * 0.55; 
+      // 🌟 核心配平：滑行時碰撞箱精確壓低到原本的 45%，騰出上方空間供紅色方塊穿過
+      this.h = this.baseH * 0.45; 
       this.y = this.baseY; 
     } else if (!isSlidingNow) {
       this.isSliding = false;
@@ -266,7 +254,6 @@ class Player {
     this.velocity += this.gravity;
     this.y += this.velocity;
 
-    // 落地檢查
     if (this.y >= this.baseY && !this.isSliding) {
       this.y = this.baseY;
       this.velocity = 0;
@@ -274,7 +261,6 @@ class Player {
       this.velocity = 0; 
     }
 
-    // 依據角色狀態更新計時影格
     if (this.y === this.baseY && !this.isSliding) {
       this.runAnim.frame = (this.runAnim.frame + this.runAnim.speed) % this.runAnim.count;
     } else if (this.y < this.baseY) {
@@ -331,11 +317,13 @@ class Obstacle {
     if (this.type === 'low') {
       this.w = 30;
       this.h = 45;      
-      this.y = height - GROUND_Y_OFFSET - this.h; 
+      this.y = height - GROUND_Y_OFFSET - this.h; // 地面障礙物
     } else if (this.type === 'high') {
       this.w = 40;
-      this.h = 40;
-      this.y = height - GROUND_Y_OFFSET - 95; 
+      this.h = 25;      // 🌟 核心修正：將懸空紅色方塊高度縮扁變精緻
+      // 🌟 核心修正：高度從原本的「底部往上減95」改為「減 52」。
+      // 這會讓紅色方塊的高度精準卡在正常角色的「脖子與頭部」高度！如果不蹲下絕對會直接被敲頭！
+      this.y = height - GROUND_Y_OFFSET - 52; 
     }
   }
 
@@ -347,7 +335,7 @@ class Obstacle {
     if (this.type === 'low') {
       fill('#38B000'); 
     } else {
-      fill('#D00000'); 
+      fill('#D00000'); // 懸空紅色方塊
     }
     rect(this.x, this.y, this.w, this.h, 5);
   }
